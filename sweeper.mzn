@@ -14,8 +14,9 @@ array[fieldIndexes] of squareVals: field;
 % &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&& representing player actions.. (how we interract with the environment)
 
 % firstly, we remember from AE2 that minizinc doesnt let us have dynamic lists, so we must fix our array size.
-int maxTurns: int;
+int: maxTurns;
 set of int: allTurns = 1..maxTurns;
+set of int: allTurnsMinus1 = 1..maxTurns-1;
 
 % the agent's possible actions could be 0:reveal 1:reveal+move 2: move.
 % small problem actually.. the "move" actions have a direction, so we cant represent all actions with 3 values.
@@ -27,7 +28,7 @@ set of int: allTurns = 1..maxTurns;
 % and one with the direction of movement for this current turn. (either up,down,left,right, or none)
 
 
-set of int: moveDirections = 0..4; % directions are dontMove, north, east, south, west
+set of int: moveDirections = {0, -fieldWidth, 1, fieldWidth, -1}; % directions are dontMove, north, east, south, west
 array[allTurns] of var moveDirections: moveDecisions;
 
 set of int: didReveal = 0..1;
@@ -41,11 +42,11 @@ array[allTurns] of var didReveal: revealDecisions;
 
 % &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&& representing the player's motivation.. (our player's GOAL environment state.. built using the aforementioned actions.. starting from the aforementioned beggining environment state)
 
-the player's motivation can be further broken down into
-what the player is ( this part doesnt directly correlate to any constraints, it's just a useful frame of reference to think in terms of )
-how to objectively evaluate an action sequence
-how to validate an action sequence actually wins the game
-how the player plays ( in this section I'm basically rambling.. rewrite pending. it basically just explores the idea of "gambling" in minesweeper, and explains how our inclusion of risks will make this model do interesting things.)
+% the player's motivation can be further broken down into
+% what the player is ( this part doesnt directly correlate to any constraints, it's just a useful frame of reference to think in terms of )
+% how to objectively evaluate an action sequence
+% how to validate an action sequence actually wins the game
+% how the player plays ( in this section I'm basically rambling.. rewrite pending. it basically just explores the idea of "gambling" in minesweeper, and explains how our inclusion of risks will make this model do interesting things.)
 
 % &&&&&&&&&&&&&&&&&& what the player IS
 % the player is effectively a turtle.
@@ -53,7 +54,7 @@ how the player plays ( in this section I'm basically rambling.. rewrite pending.
 % the problem is a case of minimising how quickly the player draws the "correct" (winning) canvas.
 
 % &&&&&&&&&&&&&&&&&& objectively evaluating a sequence of player actions (how good is this particular set of actions?)
-this is actually the easy part. just check how many rounds the player took.
+% this is actually the easy part. just check how many rounds the player took.
 % the complexity lies in checking that the player's actions actually produce a solution...
 
 % &&&&&&&&&&&&&&&&&& validating a sequence of player actions (do the actions win the game of minesweeper)
@@ -62,6 +63,20 @@ this is actually the easy part. just check how many rounds the player took.
 % however we must filter for movement actions only.
 % furthermore, minizinc has no concept of vectors so we will have to work in terms of index within a 1d array
 % - i.e. to move foward/backward we +/- 1, and to move up/down we +/1 the length of a row. (hence over/under flowing into the next/last row)
+
+% we have an array of the absolute position at each turn, obtained via "our next position will be our current position, plus the direction we moved in on that turn"
+array[allTurns] of var fieldIndexes: absolutePositions
+constraint forall (turn in allTurnsMinus1) (
+    fieldIndexes[turn+1] = fieldIndexes[turn] + moveDecisions[turn+1];
+
+);
+
+% now knowing where we are absolutely, we then obtain for each cell whether it was ever opened or remained closed.
+array[allTurns] of var fieldIndexes: didOpen;
+constraint forall (turn in allTurns) (
+    didOpen[absolutePositions[turn]] = didReveal[turn];
+);
+
 
 % &&&&&&&&&&&&&&&&&& sanity check: what is the "gameplay" element?
 % so, we have a 1d array or maybe a matrix telling us whether each cell is a mine or not.
