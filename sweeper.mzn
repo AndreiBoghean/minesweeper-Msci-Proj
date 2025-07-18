@@ -3,12 +3,11 @@
 % &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&& representing the board state.. (the environment)
 % first thing's first: we have squares. each square has values 0:hidden 1:empty, NOT 2:flagged
 % ^ note: I dont think we need the flagged state.. going to try without it
-set of int: squareVals = 0..1;
-
 % also, we have a playing field, that is an NxN grid.
 int: fieldWidth;
-set of int: fieldIndexes = 0..(fieldWidth*fieldWidth)-1;
-array[fieldIndexes] of squareVals: field;
+int: fieldWidthSquared;
+set of int: fieldIndexes = 1..fieldWidthSquared;
+array[fieldIndexes] of 0..1: field; % the field of mines, where a 1 indicates that square has a mine.
 
 
 % &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&& representing player actions.. (how we interract with the environment)
@@ -30,9 +29,10 @@ set of int: allTurnsMinus1 = 1..maxTurns-1;
 
 set of int: moveDirections = {0, -fieldWidth, 1, fieldWidth, -1}; % directions are dontMove, north, east, south, west
 array[allTurns] of var moveDirections: moveDecisions;
+constraint moveDecisions[3] = 0;
 
-set of int: didReveal = 0..1;
-array[allTurns] of var didReveal: revealDecisions;
+set of int: revealOptions = 0..1;
+array[allTurns] of var revealOptions: revealDecisions;
 
 
 % ^ point of consideration: the original idea was a restricted FOV for the player, but in fact there's no need.
@@ -64,19 +64,38 @@ array[allTurns] of var didReveal: revealDecisions;
 % furthermore, minizinc has no concept of vectors so we will have to work in terms of index within a 1d array
 % - i.e. to move foward/backward we +/- 1, and to move up/down we +/1 the length of a row. (hence over/under flowing into the next/last row)
 
+constraint absolutePositions[1] = 1;
 % we have an array of the absolute position at each turn, obtained via "our next position will be our current position, plus the direction we moved in on that turn"
-array[allTurns] of var fieldIndexes: absolutePositions
+array[allTurns] of var fieldIndexes: absolutePositions;
 constraint forall (turn in allTurnsMinus1) (
-    fieldIndexes[turn+1] = fieldIndexes[turn] + moveDecisions[turn+1];
+    absolutePositions[turn+1] = absolutePositions[turn] + moveDecisions[turn]
+    % ^ at case turn=0, the player's position is always the top left, regardless of their movement.
+    % the move decision applies only after the first ever position. that's why moveDecisions may seem offset
 
 );
 
 % now knowing where we are absolutely, we then obtain for each cell whether it was ever opened or remained closed.
-array[allTurns] of var fieldIndexes: didOpen;
+array[fieldIndexes] of var 0..1: didOpen;
 constraint forall (turn in allTurns) (
-    didOpen[absolutePositions[turn]] = didReveal[turn];
+    didOpen[absolutePositions[turn]] = revealDecisions[turn]
 );
 
+% through testing.. if the turtle didnt explore part of the board, then it doesnt get constrained lol
+% therefore we must encode that a cell is fixed to unopened if it's not been visited.
+constraint forall (fieldIndex in fieldIndexes) (
+    if not (fieldIndex in array2set(absolutePositions)) then fieldIndex = 0 endif
+);
+
+constraint field = didOpen;
+solve maximize count(moveDecisions, 0);
+
+output [
+    "field = \(field)\n",
+    "moveDecisions = \(moveDecisions)\n",
+    "absolutePositions = \(absolutePositions)\n",
+    "revealDecisions = \(revealDecisions)\n",
+    "didOpen = \(didOpen)\n",
+]
 
 % &&&&&&&&&&&&&&&&&& sanity check: what is the "gameplay" element?
 % so, we have a 1d array or maybe a matrix telling us whether each cell is a mine or not.
