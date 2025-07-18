@@ -29,7 +29,6 @@ set of int: allTurnsMinus1 = 1..maxTurns-1;
 
 set of int: moveDirections = {0, -fieldWidth, 1, fieldWidth, -1}; % directions are dontMove, north, east, south, west
 array[allTurns] of var moveDirections: moveDecisions;
-constraint moveDecisions[3] = 0;
 
 set of int: revealOptions = 0..1;
 array[allTurns] of var revealOptions: revealDecisions;
@@ -64,7 +63,7 @@ array[allTurns] of var revealOptions: revealDecisions;
 % furthermore, minizinc has no concept of vectors so we will have to work in terms of index within a 1d array
 % - i.e. to move foward/backward we +/- 1, and to move up/down we +/1 the length of a row. (hence over/under flowing into the next/last row)
 
-constraint absolutePositions[1] = 1;
+constraint absolutePositions[1] = 1; % we start at the start (top-left corner).
 % we have an array of the absolute position at each turn, obtained via "our next position will be our current position, plus the direction we moved in on that turn"
 array[allTurns] of var fieldIndexes: absolutePositions;
 constraint forall (turn in allTurnsMinus1) (

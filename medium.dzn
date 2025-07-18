@@ -1,0 +1,6 @@
+fieldWidth = 3;
+fieldWidthSquared = 9;
+
+maxTurns = 9;
+
+field = [ 0, 0, 0, 0, 1, 0, 0, 0, 0 ]
