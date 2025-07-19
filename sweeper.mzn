@@ -82,8 +82,10 @@ constraint forall (turn in allTurns) (
 % through testing.. if the turtle didnt explore part of the board, then it doesnt get constrained lol
 % therefore we must encode that a cell is fixed to unopened if it's not been visited.
 constraint forall (fieldIndex in fieldIndexes) (
-    if not (fieldIndex in array2set(absolutePositions)) then fieldIndex = 0 endif
+    if not (fieldIndex in array2set(absolutePositions)) then didOpen[fieldIndex] = 0 endif
 );
+% ^ fun note I will be deleting soon: if you mistakenly put ..then fieldIndex = 0.. then you imply that
+% "any fieldIndex not visited is 0".. i.e. the only field index you're allowed to not visit is index 0.
 
 constraint field = didOpen;
 solve maximize count(moveDecisions, 0);
