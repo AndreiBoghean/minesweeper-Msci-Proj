@@ -5,10 +5,13 @@
 % ^ note: I dont think we need the flagged state.. going to try without it
 % also, we have a playing field, that is an NxN grid.
 int: fieldWidth;
-int: fieldWidthSquared;
-set of int: fieldIndexes = 1..fieldWidthSquared;
+set of int: fieldIndexes = 1..fieldWidth*fieldWidth;
 array[fieldIndexes] of 0..1: field; % the field of mines, where a 1 indicates that square has a mine.
-
+set of int: fieldIndexesOnlyBorders = 1..fieldWidth union % top row
+                                      (fieldWidth*(fieldWidth-1))..(fieldWidth*fieldWidth) % bottom row
+                                      union {x*fieldWidth+1-fieldWidth | x in 1..fieldWidth} % left column
+                                      union {x*fieldWidth | x in 1..fieldWidth}; % right column
+set of int: fieldIndexesNoBorders   = fieldIndexes diff fieldIndexesOnlyBorders;
 
 % &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&& representing player actions.. (how we interract with the environment)
 
@@ -90,15 +93,72 @@ constraint forall (fieldIndex in fieldIndexes) (
 constraint field = didOpen;
 solve maximize count(moveDecisions, 0);
 
+% naive probability attempt
+% pre-requsite.. a list of neighbouring mines for each cell.
+% ^ note: this is basically just convolution with kernel [[1, 1, 1], [1, 0, 1], [1, 1, 1]] (i.e. sum our neighbours; exclude middle)
+array[fieldIndexes] of var 0..8: neighbourMines;
+constraint forall (fieldIndex in fieldIndexesNoBorders) (
+    neighbourMines[fieldIndex] = field[fieldIndex-1-fieldWidth] + field[fieldIndex-fieldWidth] + field[fieldIndex+1-fieldWidth]
+                               + field[fieldIndex-1           ]                 +                field[fieldIndex+1           ]
+                               + field[fieldIndex-1+fieldWidth] + field[fieldIndex+fieldWidth] + field[fieldIndex+1+fieldWidth]
+);
+
+% border columns, excluding corners
+/*
+notes:
+- we +/- fieldWidth to go down/up.
+- we shift the edgePoint according to the hOffset (i.e. are we left edge or right edge)
+- if we're on right edge, then we subtract 1 MORE from the right side of the summing kernel, to bring it behind the middle,
+  because we need to flip it, because the "centre" is the one that is on the edge of the board.
+*/
+constraint forall (hOffset in 0..1, edgePoint in (2+hOffset*(fieldWidth-1))*fieldWidth..(fieldWidth-1+hOffset*(fieldWidth-1))*fieldWidth) (
+    neighbourMines[edgePoint] = field[edgePoint-fieldWidth+hOffset*(fieldWidth-1)] + field[edgePoint+1-fieldWidth+hOffset*(fieldWidth-2)]
+                                                                                   + field[edgePoint+1           +hOffset*(fieldWidth-2)]
+                              + field[edgePoint+fieldWidth+hOffset*(fieldWidth-1)] + field[edgePoint+1+fieldWidth+hOffset*(fieldWidth-2)]
+);
+% similarly for border rows
+% notice I've removed the *fieldWidth from the edgePoint range, because we're no longer stepping vertically through rows, but moving left to right, IN a row.
+constraint forall (vOffset in 0..1, edgePoint in 2+vOffset*(fieldWidth-1)..fieldWidth-1+vOffset*(fieldWidth-1)) (
+    neighbourMines[edgePoint] = field[edgePoint-fieldWidth+vOffset*(fieldWidth-1)] + field[edgePoint+1-fieldWidth+vOffset*(fieldWidth-2)]
+                                                                                   + field[edgePoint+1           +vOffset*(fieldWidth-2)]
+                              + field[edgePoint+fieldWidth+vOffset*(fieldWidth-1)] + field[edgePoint+1+fieldWidth+vOffset*(fieldWidth-2)]
+);
+
+% final edge cases for corners.. random combinations of +/- 1 or fieldWidth for next/prev row/column.
+constraint neighbourMines[1]                           = field[2] +
+                                                         field[1+fieldWidth] +
+                                                         field[2+fieldWidth];
+constraint neighbourMines[fieldWidth]                  = field[fieldWidth-1] +
+                                                         field[fieldWidth+fieldWidth] +
+                                                         field[2+fieldWidth+fieldWidth];
+constraint neighbourMines[1+fieldWidth*(fieldWidth-1)] = field[1+fieldWidth*(fieldWidth-1)+1] +
+                                                         field[1+fieldWidth*(fieldWidth-1)-fieldWidth] +
+                                                         field[1+fieldWidth*(fieldWidth-1)-fieldWidth+1];
+constraint neighbourMines[fieldWidth*fieldWidth]       = field[fieldWidth*fieldWidth-1] +
+                                                         field[fieldWidth*fieldWidth-fieldWidth] +
+                                                         field[fieldWidth*fieldWidth-fieldWidth-1];
+
 output [
     "field = \(field)\n",
     "moveDecisions = \(moveDecisions)\n",
     "absolutePositions = \(absolutePositions)\n",
     "revealDecisions = \(revealDecisions)\n",
     "didOpen = \(didOpen)\n",
+    "visitedCells = \(array2set(absolutePositions))\n",
+    "fieldIndexesOnlyBorders = \(fieldIndexesOnlyBorders)\n",
+    "fieldIndexesNoBorders = \(fieldIndexesNoBorders)\n",
+    % "test = \(1..fieldWidth)\n",
+    % "test = \((fieldWidth*(fieldWidth-1))..(fieldWidth*fieldWidth))\n",
+    % "test = \({x*fieldWidth+1-fieldWidth | x in 1..fieldWidth})\n",
+    % "test = \({x*fieldWidth | x in 1..fieldWidth})\n",
 ]
 
+
+
+
+
 % &&&&&&&&&&&&&&&&&& sanity check: what is the "gameplay" element?
+% &&&&&&&&& talking through our logic..
 % so, we have a 1d array or maybe a matrix telling us whether each cell is a mine or not.
 % what does the theoretical ideal solution look like in this game?
 % would that be the turtle starting in the top left and scanning along, simply skipping?
@@ -108,10 +168,12 @@ output [
 % the intended flow is that the turtle circles the block and finds the "entry".
 % how can we coax this behaviour in the iterative execution that is CP?
 
+% &&&&&&&&& what we should do..
 % SOLUTION: we must forbid gambles. the turtle must only take moves that are certain.
 % we must still allow gambles in the minefield, but must somehow forbid impossible problems.
 % these gambling conditions AVOID THIS BEING A SIMPLE PATHFINDING PROBLEM
 
+% &&&&&&&&& how can we implement probability considerations.. (the hard part; lots of words here.)
 % okok we've figured out how to work around AMBIGUITY.
 % but HOW DO WE SELECTIVELY REVEAL?
 
@@ -119,12 +181,67 @@ output [
 % can we forbit it from being wrong by simply requiring it never open a mine or flag a safe cell?
 % if we did that, would it encroach on our "ambiguity exists" constraints?
 
+% &&&&& (naive) probability with sum of neighbours
 % to know this, we need to think more about how we allow ambiguity. each cell's mine percentage is given by the minimum of a simple algorithm run over all neighbouring open cells.
 % if an open cell's value is e.g. 3, then the unrevealed cell's bomb probability is given by that open cell's value, divided by the amount of unopen cells in the vicinity.
 % so if that open cell has 4 neighbouring cells that are unrevealed, we know there's a 3/4 or 75% chance one of those unrevealed cells contain a mine.
 
 % keeping this in mind.. to forbid gambling, we must maintain a matrix with a cell's given mine probability at any turn. we then constrain the "reveal" action to only work on 0% probability cells.
 % further, to forbid mine arrangements that require a gamble, we can state that the player eventually finishes the game. with the "player never takes gambles" rules, THIS SHOULD ULTIMATELY IMPLY THE PLAYING FIELD NEVER FORCES A GAMBLE.
+
+% &&&&& realising the naive attempt is naive
+% implementing probability..
+% we COULD have an array of t fields for all turns, tracking how the probability changes on each turn
+% but that would be wasteful? I think.
+% getting ahead of myself.. how do we do this?
+% if we calculate a cell's probability solely on it's neighbours, we miss out on 80% of the fun of minesweeper, where you're kinda using baye's theorem with multiple different cells
+% to find out that a particular cell has a 0% mine probability, despite the fact that it's immediate neighbours dont necessarily suggest that.
+
+% take for example this minesweeper arrangement. we're studying the left border where the 1 and 2 neighbour each other.
+% the "A" are minesweeper cells purely aflicted by the SINGLE 1 at the border.
+% the "B" are cells influenced by both the 1 and the 2, because those cells are in range of both.
+% the "C" are cells purely influenced by the 2 in the border. (NOT ALL 2s. just the one at the border)
+% ..._ABBC___...
+% ...11122111...
+% there is a single mine in the 3 cells "ABB". the neighbouring 2 indicates there is 2 mines in the 3 cells "BBC"
+% there is an overlap of 2 cells between the domain of the 1 and the domain of the 2. (the overlapping cells being "BB")
+% a human realises that the `1` suggests it is impossible for both mines from the `2` to be in "BB", hence one mine MUST be in position C.
+% a human would subsequently understand there is 1 mine left in the range of the `2`, i.e. there's 1 cell in "BB"
+% therefore slot A is empty.
+
+% this sort of deductive reasoning is what we want to maximise in this minizinc model
+% but to maximise it, the model must be able to do it. how do we make it possible?
+
+% ...3344422...
+% ...1112111...
+
+% ok new new idea..
+% when considering an open cell, we look at it's number and all it's neighbours.
+% we go through all possible permutations of mines within the cells,
+% and for each cell it's "value" becomes the count of combinations where the cell has a mine
+% a problem arises when there's only 1 combination, with everything being a mine
+% because then everything is 1, but we want high mine certainty to be a high mine value
+% we should divide by the total number of combinations
+% ^ this actually doeesnt work at all I think (because all the permutations even out..) but whatever
+
+% .. what if sum of ALL neighbours MINUS (1 + (DIRECT neighbours) MOD 2). (intent is that even number subtracts 1)
+% ^^ trying to work through this with some diagrams I wont understand tomorrow.. VV
+% ...3343433...
+% ...1112111...
+
+% ...3355533...
+% ...1113111...
+
+% ...3355533...
+% ...__131__...
+% ...__1X1__...
+
+% &&&&& comming to terms with my foolishness and returning to the naive method.
+/*
+ABSOLUTE RULE: because we need to specially consider cases when e.g. a [1] guarantees a cell has a mine, I think we will require a MAX somewhere in our weightings.
+this is kinda the naive method. I feel like a more complex attempt may require the naive version in the first place. this is why..
+cope: we try to start with a naive immeidate neighbour probability approach, and see what happens then go from there. I've spent too much time trying to think this over
+*/
 
 
 % &&&&&&&&&&&&&&&&&& back to the rules of simple minesweeper
