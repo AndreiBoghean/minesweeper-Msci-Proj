@@ -127,7 +127,7 @@ constraint forall (vOffset in 0..1, edgePoint in {relI+(fieldWidth*(fieldWidth-1
                               + field[edgePoint-1+fieldWidth*(-2*vOffset+1)] + field[edgePoint+fieldWidth*(-2*vOffset+1)] + field[edgePoint+1+fieldWidth*(-2*vOffset+1)]
 );
 
-% final edge cases for corners.. random combinations of +/- 1 or fieldWidth for next/prev row/column.
+% final edge cases for corners.. laid out in a table cuz I was feeling neat and tidy
 %                                                        field[position                   right left down          up           ]
 constraint neighbourMines[1]                           = field[1                           +1*1 -0*1 +0*fieldWidth -0*fieldWidth] +
                                                          field[1                           +0*1 -0*1 +1*fieldWidth -0*fieldWidth] +
@@ -141,6 +141,37 @@ constraint neighbourMines[1+fieldWidth*(fieldWidth-1)] = field[1+fieldWidth*(fie
 constraint neighbourMines[fieldWidth*fieldWidth]       = field[fieldWidth*fieldWidth       +0*1 -1*1 +0*fieldWidth -0*fieldWidth] +
                                                          field[fieldWidth*fieldWidth       +0*1 -0*1 +0*fieldWidth -1*fieldWidth] +
                                                          field[fieldWidth*fieldWidth       +0*1 -1*1 +0*fieldWidth -1*fieldWidth];
+
+% now we use neighbourMines to build the naive mine probability table.
+% problem: the known probabilities change according to how much of the board we've discovered.
+% do we
+%   A: keep a probability table for each turn (needlessly memory intensive?)
+%   B: find a smarter way
+
+% what could a smarter way look like? well, we know the player's action sequence.
+% we could restrict player actions so they can only open a square, if the required actions to guarantee a square's safety were taken
+%   ^ i.e. I can only open this square if I've opened the square above it, and the square to the left.
+%   which is the information I would hypothetically need to be able to open the square without worry.
+
+% how could we figure out what moves are required to deem a square "safe"?.
+% idk... :(
+
+% after thought and deliberation.. we shouldnt be thinking in terms of probability a cell has a mine,
+% but rather probabilities of shapes.
+% if an open cell has 2 neighbouring mine, and 3 neighbouring possible positions, there are 3 potential "shapes" that are likely: "XX0, 0XX, X0X".
+% we need to think in terms of these shapes, and then selectively eliminate shapes according to info suggested by other cells.
+
+% we do this with binary.
+% luckily 8 bit numbers exist, and a 3x3 grid without the middle is coincidentally 8 items.
+% each bit dictates yes or no for a mine being present in the coresponding square.
+
+%     sidenote: 2^8=256 numbers in a list for a single cell, with each number being 8 bits or 1 byte.
+%     so with a 50x50 grid we will have 640000 numbers for the whole grid. a.k.a. 640 kilobytes. this may have performance ramifications :(
+
+% ok time to do some real work.
+% array[fieldIndexes, 8] of var 0..1: localShapes;
+% ^ not too sure how to name this properly. it's an array the size of the minefield, where each entry is a flag dictating whether the corresponding neighbour is a mine.
+
 
 output [
     "field = \(field)\n",
