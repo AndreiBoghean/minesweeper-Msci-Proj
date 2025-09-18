@@ -2,63 +2,50 @@
 % we have a map of every mine of the field. we dont actually need that.. all our model needs is the grid of neighbour counts.
 
 int: fieldWidth;
-set of int: fieldIndexes = 1..fieldWidth*fieldWidth;
-array[fieldIndexes] of 0..1: field; % the field of mines, where a 1 indicates that square has a mine.
-
-set of int: fieldIndexesOnlyBorders = 1..fieldWidth union % top row
-                                      (fieldWidth*(fieldWidth-1))..(fieldWidth*fieldWidth) % bottom row
-                                      union {x*fieldWidth+1-fieldWidth | x in 1..fieldWidth} % left column
-                                      union {x*fieldWidth | x in 1..fieldWidth}; % right column
-set of int: fieldIndexesNoBorders   = fieldIndexes diff fieldIndexesOnlyBorders;
+array[1..fieldWidth, 1..fieldWidth] of 0..1: field; % the field of mines, where a 1 indicates that square has a mine.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% neighbourMines definition START
 % pre-requsite.. a list of neighbouring mines for each cell.
 % ^ note: this is basically just convolution with kernel [[1, 1, 1], [1, 0, 1], [1, 1, 1]] (i.e. sum our neighbours; exclude middle)
-array[fieldIndexes] of var 0..8: neighbourMines;
-constraint forall (fieldIndex in fieldIndexesNoBorders) (
-    neighbourMines[fieldIndex] = field[fieldIndex-1-fieldWidth] + field[fieldIndex-fieldWidth] + field[fieldIndex+1-fieldWidth]
-                               + field[fieldIndex-1           ]                 +                field[fieldIndex+1           ]
-                               + field[fieldIndex-1+fieldWidth] + field[fieldIndex+fieldWidth] + field[fieldIndex+1+fieldWidth]
+array[1..fieldWidth, 1..fieldWidth] of var 0..8: neighbourMines;
+constraint forall (fieldIndexX in 2..fieldWidth-1, fieldIndexY in 2..fieldWidth-1) (
+    neighbourMines[fieldIndexY, fieldIndexX] = field[fieldIndexY-1, fieldIndexX-1] + field[fieldIndexY-1, fieldIndexX  ] + field[fieldIndexY-1, fieldIndexX+1]
+                                             + field[fieldIndexY  , fieldIndexX-1]                      +                  field[fieldIndexY  , fieldIndexX+1]
+                                             + field[fieldIndexY+1, fieldIndexX-1] + field[fieldIndexY+1, fieldIndexX  ] + field[fieldIndexY+1, fieldIndexX+1]
 );
 
 % border columns, excluding corners
 /*
 notes:
-- we +/- fieldWidth to go down/up.
 - we shift the edgePoint according to the hOffset (i.e. are we left edge or right edge)
 - if we're on right edge, then we subtract 1 MORE from the right side of the summing kernel, to bring it behind the middle,
   because we need to flip it, because the "centre" is the one that is on the edge of the board.
 */
-% constraint forall (hOffset in 0..1, edgePoint in {x | x in 1+(1+hOffset*(fieldWidth-1))*fieldWidth..(fieldWidth-1+hOffset*(fieldWidth-1))*fieldWidth where x mod fieldWidth = 1-hOffset}) (
-% the edgePoint set takes advantage of the fact that the right-most cell's index is always a factor of the field width.
-% similarly, the left-most cell in each row will be equal to 1 plus a multiple of fieldWidth.
-constraint forall (hOffset in 0..1, edgePoint in {x | x in fieldWidth+1..fieldWidth*(fieldWidth-1) where x mod fieldWidth = 1-hOffset}) (
-    neighbourMines[edgePoint] = field[edgePoint-fieldWidth] + field[edgePoint-fieldWidth-2*hOffset+1]
-                                                            + field[edgePoint           -2*hOffset+1]
-                              + field[edgePoint+fieldWidth] + field[edgePoint+fieldWidth-2*hOffset+1]
+constraint forall (xOffset in 0..1, y in 2..fieldWidth-1) (
+    neighbourMines[y, 1+xOffset*(fieldWidth-1)] = field[y-1, 1+xOffset*(fieldWidth-1)] + field[y-1, 2+xOffset*(fieldWidth-3)]
+                                                                                       + field[y  , 2+xOffset*(fieldWidth-3)]
+                                                + field[y+1, 1+xOffset*(fieldWidth-1)] + field[y+1, 2+xOffset*(fieldWidth-3)]
 );
 % similarly for border rows
-% notice I've removed the *fieldWidth from the edgePoint range, because we're no longer stepping vertically through rows, but moving left to right, IN a row.
-% relI is offset to the bottom of the board, turning it into the bottom row, only if vOffset=1.
-constraint forall (vOffset in 0..1, edgePoint in {relI+(fieldWidth*(fieldWidth-1))*vOffset | relI in (2)..(fieldWidth-1)}) (
-    neighbourMines[edgePoint] = field[edgePoint-1                          ]                 +                              field[edgePoint+1                          ]
-                              + field[edgePoint-1+fieldWidth*(-2*vOffset+1)] + field[edgePoint+fieldWidth*(-2*vOffset+1)] + field[edgePoint+1+fieldWidth*(-2*vOffset+1)]
+constraint forall (yOffset in 0..1, x in 2..fieldWidth-1) (
+    neighbourMines[1+yOffset*(fieldWidth-1), x] = field[1+yOffset*(fieldWidth-1), x-1]             +                          field[1+yOffset*(fieldWidth-1), x+1]
+                                                + field[2+yOffset*(fieldWidth-3), x-1] + field[2+yOffset*(fieldWidth-3), x] + field[2+yOffset*(fieldWidth-3), x+1]
 );
 
 % final edge cases for corners.. laid out in a table cuz I was feeling neat and tidy
-%                                                        field[position                   right left down          up           ]
-constraint neighbourMines[1]                           = field[1                           +1*1 -0*1 +0*fieldWidth -0*fieldWidth] +
-                                                         field[1                           +0*1 -0*1 +1*fieldWidth -0*fieldWidth] +
-                                                         field[1                           +1*1 -0*1 +1*fieldWidth -0*fieldWidth];
-constraint neighbourMines[fieldWidth]                  = field[fieldWidth                  +0*1 -1*1 +0*fieldWidth -0*fieldWidth] +
-                                                         field[fieldWidth                  +0*1 -0*1 +1*fieldWidth -0*fieldWidth] +
-                                                         field[fieldWidth                  +0*1 -1*1 +1*fieldWidth -0*fieldWidth];
-constraint neighbourMines[1+fieldWidth*(fieldWidth-1)] = field[1+fieldWidth*(fieldWidth-1) +1*1 -0*1 +0*fieldWidth -0*fieldWidth] +
-                                                         field[1+fieldWidth*(fieldWidth-1) +0*1 -0*1 +0*fieldWidth -1*fieldWidth] +
-                                                         field[1+fieldWidth*(fieldWidth-1) +1*1 -0*1 +0*fieldWidth -1*fieldWidth];
-constraint neighbourMines[fieldWidth*fieldWidth]       = field[fieldWidth*fieldWidth       +0*1 -1*1 +0*fieldWidth -0*fieldWidth] +
-                                                         field[fieldWidth*fieldWidth       +0*1 -0*1 +0*fieldWidth -1*fieldWidth] +
-                                                         field[fieldWidth*fieldWidth       +0*1 -1*1 +0*fieldWidth -1*fieldWidth];
+%                                                        field[y_position down/up    x_position right/left]
+constraint neighbourMines[1,1]                         = field[1          +1,        1          +1]+
+                                                         field[1          +0,        1          +1]+
+                                                         field[1          +1,        1          +0];
+constraint neighbourMines[1, fieldWidth]               = field[1          +1,        fieldWidth -1]+
+                                                         field[1          +0,        fieldWidth -1]+
+                                                         field[1          +1,        fieldWidth -0];
+constraint neighbourMines[fieldWidth, 1]               = field[fieldWidth -1,        1          +1]+
+                                                         field[fieldWidth -0,        1          +1]+
+                                                         field[fieldWidth -1,        1          +0];
+constraint neighbourMines[fieldWidth, fieldWidth]      = field[fieldWidth -1,        fieldWidth -1]+
+                                                         field[fieldWidth -0,        fieldWidth -1]+
+                                                         field[fieldWidth -1,        fieldWidth -0];
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% neighbourMines definition DONE
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% representing the board state DONE
@@ -96,8 +83,9 @@ set of int: allTurnsMinus1 = 1..maxTurns-1;
 
 solve satisfy;
 
-output [
-    "field = \(field)\n",
-    "neighbourMines = \(neighbourMines)\n",
-    "test = \([ (i,j): i*3+j | i in 2..4, j in 1..3][2,2])\n",
-]
+output "field:\n";
+output [row: "\(field[row, 1..fieldWidth])\n" | row in 1..fieldWidth];
+output "\n";
+
+output "neighbourMines:\n";
+output [row: "\(neighbourMines[row, 1..fieldWidth])\n" | row in 1..fieldWidth];
