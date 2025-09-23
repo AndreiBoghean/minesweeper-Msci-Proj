@@ -8,44 +8,23 @@ array[1..fieldWidth, 1..fieldWidth] of 0..1: field; % the field of mines, where 
 % pre-requsite.. a list of neighbouring mines for each cell.
 % ^ note: this is basically just convolution with kernel [[1, 1, 1], [1, 0, 1], [1, 1, 1]] (i.e. sum our neighbours; exclude middle)
 array[1..fieldWidth, 1..fieldWidth] of var 0..8: neighbourMines;
-constraint forall (fieldIndexX in 2..fieldWidth-1, fieldIndexY in 2..fieldWidth-1) (
-    neighbourMines[fieldIndexY, fieldIndexX] = field[fieldIndexY-1, fieldIndexX-1] + field[fieldIndexY-1, fieldIndexX  ] + field[fieldIndexY-1, fieldIndexX+1]
-                                             + field[fieldIndexY  , fieldIndexX-1]                      +                  field[fieldIndexY  , fieldIndexX+1]
-                                             + field[fieldIndexY+1, fieldIndexX-1] + field[fieldIndexY+1, fieldIndexX  ] + field[fieldIndexY+1, fieldIndexX+1]
+constraint forall (fieldX in 1..fieldWidth, fieldY in 1..fieldWidth) (
+    neighbourMines[fieldY, fieldX] =
+        if fieldY-1 < 1 then 0 else
+             if fieldX-1 < 1 then 0 else field[fieldY-1, fieldX-1] endif +
+             field[fieldY-1, fieldX  ] +
+             if fieldX+1 > fieldWidth then 0 else field[fieldY-1, fieldX+1] endif
+        endif
+    +
+         if fieldX-1 < 1 then 0 else field[fieldY  , fieldX-1] endif +
+         if fieldX+1 > fieldWidth then 0 else field[fieldY  , fieldX+1] endif
+    +
+        if fieldY+1 > fieldWidth then 0 else
+             if fieldX-1 < 1 then 0 else field[fieldY+1, fieldX-1] endif +
+             field[fieldY+1, fieldX  ] +
+             if fieldX+1 > fieldWidth then 0 else field[fieldY+1, fieldX+1] endif
+        endif
 );
-
-% border columns, excluding corners
-/*
-notes:
-- we shift the edgePoint according to the hOffset (i.e. are we left edge or right edge)
-- if we're on right edge, then we subtract 1 MORE from the right side of the summing kernel, to bring it behind the middle,
-  because we need to flip it, because the "centre" is the one that is on the edge of the board.
-*/
-constraint forall (xOffset in 0..1, y in 2..fieldWidth-1) (
-    neighbourMines[y, 1+xOffset*(fieldWidth-1)] = field[y-1, 1+xOffset*(fieldWidth-1)] + field[y-1, 2+xOffset*(fieldWidth-3)]
-                                                                                       + field[y  , 2+xOffset*(fieldWidth-3)]
-                                                + field[y+1, 1+xOffset*(fieldWidth-1)] + field[y+1, 2+xOffset*(fieldWidth-3)]
-);
-% similarly for border rows
-constraint forall (yOffset in 0..1, x in 2..fieldWidth-1) (
-    neighbourMines[1+yOffset*(fieldWidth-1), x] = field[1+yOffset*(fieldWidth-1), x-1]             +                          field[1+yOffset*(fieldWidth-1), x+1]
-                                                + field[2+yOffset*(fieldWidth-3), x-1] + field[2+yOffset*(fieldWidth-3), x] + field[2+yOffset*(fieldWidth-3), x+1]
-);
-
-% final edge cases for corners.. laid out in a table cuz I was feeling neat and tidy
-%                                                        field[y_position down/up    x_position right/left]
-constraint neighbourMines[1,1]                         = field[1          +1,        1          +1]+
-                                                         field[1          +0,        1          +1]+
-                                                         field[1          +1,        1          +0];
-constraint neighbourMines[1, fieldWidth]               = field[1          +1,        fieldWidth -1]+
-                                                         field[1          +0,        fieldWidth -1]+
-                                                         field[1          +1,        fieldWidth -0];
-constraint neighbourMines[fieldWidth, 1]               = field[fieldWidth -1,        1          +1]+
-                                                         field[fieldWidth -0,        1          +1]+
-                                                         field[fieldWidth -1,        1          +0];
-constraint neighbourMines[fieldWidth, fieldWidth]      = field[fieldWidth -1,        fieldWidth -1]+
-                                                         field[fieldWidth -0,        fieldWidth -1]+
-                                                         field[fieldWidth -1,        fieldWidth -0];
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% neighbourMines definition DONE
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% representing the board state DONE
@@ -79,9 +58,59 @@ as a consequence, any and every cell in the time_of_opening grid will be strictl
 % note: likely, this only needs to be board size squared, since it's not possible for 0 progress each turn. we always have at least 1 square of progress.
 int: maxTurns;
 set of int: allTurns = 1..maxTurns;
-set of int: allTurnsMinus1 = 1..maxTurns-1;
 
-solve satisfy;
+array[1..fieldWidth, 1..fieldWidth] of var 0..1: cellDecisions; % 0 for open, 1 for mine.
+
+array[1..fieldWidth, 1..fieldWidth] of var allTurns: timings;
+% /*
+% an action can happen only after an action on it's neighbour happens first.
+constraint forall (fieldX in 1..fieldWidth, fieldY in 1..fieldWidth) (
+        if fieldY-1 >= 1 then
+             if fieldX-1 >= 1 then          timings[fieldY-1, fieldX-1] > timings[fieldY, fieldX] endif \/
+                                            timings[fieldY-1, fieldX  ] > timings[fieldY, fieldX] \/
+             if fieldX+1 <= fieldWidth then timings[fieldY-1, fieldX+1] > timings[fieldY, fieldX] endif
+        endif \/
+
+        if fieldX-1 >= 1 then          timings[fieldY, fieldX-1] > timings[fieldY, fieldX] endif \/
+        if fieldX+1 <= fieldWidth then timings[fieldY, fieldX+1] > timings[fieldY, fieldX] endif \/
+
+        if fieldY+1 <= fieldWidth then
+             if fieldX-1 >= 1 then          timings[fieldY+1, fieldX-1] > timings[fieldY, fieldX] endif \/
+                                            timings[fieldY+1, fieldX  ] > timings[fieldY, fieldX] \/
+             if fieldX+1 <= fieldWidth then timings[fieldY+1, fieldX+1] > timings[fieldY, fieldX] endif
+        endif
+);
+% */
+
+% /*
+% for all neighbours that arent opened cells, their sums equal the amount of mines in the vicinity.
+constraint forall (fieldX in 1..fieldWidth, fieldY in 1..fieldWidth) (
+    neighbourMines[fieldY, fieldX] =
+        if fieldY-1 < 1 then 0 else
+             if fieldX-1 >= 1          /\ (timings[fieldY-1, fieldX-1] > timings[fieldY, fieldX] \/ cellDecisions[fieldY-1, fieldX-1] == 1) then cellDecisions[fieldY-1, fieldX-1] else 0 endif +
+             if                           (timings[fieldY-1, fieldX  ] > timings[fieldY, fieldX] \/ cellDecisions[fieldY-1, fieldX  ] == 1) then cellDecisions[fieldY-1, fieldX  ] else 0 endif +
+             if fieldX+1 <= fieldWidth /\ (timings[fieldY-1, fieldX+1] > timings[fieldY, fieldX] \/ cellDecisions[fieldY-1, fieldX+1] == 1) then cellDecisions[fieldY-1, fieldX+1] else 0 endif
+        endif
+    +
+         if fieldX-1 >= 1          /\ (timings[fieldY, fieldX-1] > timings[fieldY, fieldX] \/ cellDecisions[fieldY, fieldX-1] == 1) then cellDecisions[fieldY, fieldX-1] else 0 endif +
+         if fieldX+1 <= fieldWidth /\ (timings[fieldY, fieldX+1] > timings[fieldY, fieldX] \/ cellDecisions[fieldY, fieldX+1] == 1) then cellDecisions[fieldY, fieldX+1] else 0 endif
+    +
+        if fieldY+1 > fieldWidth then 0 else
+             if fieldX-1 >= 1          /\ (timings[fieldY+1, fieldX-1] > timings[fieldY, fieldX] \/ cellDecisions[fieldY+1, fieldX-1] == 1) then cellDecisions[fieldY+1, fieldX-1] else 0 endif +
+             if                           (timings[fieldY+1, fieldX  ] > timings[fieldY, fieldX] \/ cellDecisions[fieldY+1, fieldX  ] == 1) then cellDecisions[fieldY+1, fieldX  ] else 0 endif +
+             if fieldX+1 <= fieldWidth /\ (timings[fieldY+1, fieldX+1] > timings[fieldY, fieldX] \/ cellDecisions[fieldY+1, fieldX+1] == 1) then cellDecisions[fieldY+1, fieldX+1] else 0 endif
+        endif
+);
+% */
+
+constraint timings[1, 1] = 1; % temp fix: we start top-left corner.
+% constraint timings[2, 1] = 6; % temp fix: we start top-left corner.
+% constraint timings[2, 2] = 6; % temp fix: we start top-left corner.
+% constraint timings[2, 3] = 6; % temp fix: we start top-left corner.
+constraint count(timings, 1) = 1;
+% constraint cellDecisions == field;
+% solve satisfy;
+solve minimize sum(timings);
 
 output "field:\n";
 output [row: "\(field[row, 1..fieldWidth])\n" | row in 1..fieldWidth];
@@ -89,3 +118,11 @@ output "\n";
 
 output "neighbourMines:\n";
 output [row: "\(neighbourMines[row, 1..fieldWidth])\n" | row in 1..fieldWidth];
+output "\n";
+
+output "timings:\n";
+output [row: "\(timings[row, 1..fieldWidth])\n" | row in 1..fieldWidth];
+
+output "cellDecisions:\n";
+output [row: "\(cellDecisions[row, 1..fieldWidth])\n" | row in 1..fieldWidth];
+output "\n";

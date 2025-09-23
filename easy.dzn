@@ -2,4 +2,4 @@ fieldWidth = 2;
 
 maxTurns = 4;
 
-field = [ 0, 1, 0, 0 ]
+field = [| 0, 1 | 1, 1 |]
