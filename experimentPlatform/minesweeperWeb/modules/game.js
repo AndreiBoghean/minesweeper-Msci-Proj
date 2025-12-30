@@ -1,11 +1,23 @@
 import {placePreloaded} from "/modules/helpRender.js"
 
-export function mineGen() {
-    return [[0, 0, 0, 0, 0, 0, 0, 0, 0],
+export function mineGen(fieldWidth, fieldHeight) {
+    // TODO: randomisation to ensure a specific number of mines
+    // TODO: seed randomisation with field generation time, so we can re-produce a playthrough from the time it was started.
+    var game = []
+    for (let y = 0 ; y < fieldHeight ; y++) {
+        let row = []
+        for (let x = 0 ; x < fieldWidth; x++) {
+            row.push(Math.random() < 0.2 ? 1 : 0);
+        }
+        game.push(row)
+    }
+
+    return game;
+    return [[0, 0, 1, 0, 0, 0, 0, 0, 0],
             [0, 0, 0, 0, 0, 0, 0, 0, 0],
             [0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 1, 1, 0, 0, 0, 0],
-            [0, 0, 0, 1, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0],
             [0, 0, 0, 0, 0, 0, 0, 0, 0],
             [0, 0, 0, 0, 0, 0, 0, 0, 0],
             [0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -13,12 +25,25 @@ export function mineGen() {
 }
 
 export function hintGen(mineLayout) {
+    let hints = []
+    for (const row of mineLayout) {hints.push(Array(row.length).fill(0))}
+
+    for (let y = 0 ; y < mineLayout.length ; y++) {
+        for (let x = 0 ; x < mineLayout[0].length ; x++) {
+            hints[y][x] = ((mineLayout[y-1]||[])[x-1]||0) + ((mineLayout[y+0]||[])[x-1]||0) + ((mineLayout[y+1]||[])[x-1]||0) +
+                          ((mineLayout[y-1]||[])[x+0]||0)                  +                  ((mineLayout[y+1]||[])[x+0]||0) +
+                          ((mineLayout[y-1]||[])[x+1]||0) + ((mineLayout[y+0]||[])[x+1]||0) + ((mineLayout[y+1]||[])[x+1]||0)
+        }
+    }
+    // ^ note: thanks javascript for nice and easy out of bounds fallback to 0 :) I still hate you though...
+
+    return hints;
     return [[0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 1, 0, 0, 0, 0, 0, 0],
             [0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 1, 2, 2, 1, 0, 0, 0],
-            [0, 0, 2, 2, 2, 1, 0, 0, 0],
-            [0, 0, 2, 2, 3, 1, 0, 0, 0],
-            [0, 0, 1, 1, 1, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0],
             [0, 0, 0, 0, 0, 0, 0, 0, 0],
             [0, 0, 0, 0, 0, 0, 0, 0, 0],
             [0, 0, 0, 0, 0, 0, 0, 0, 0]]
@@ -61,7 +86,7 @@ export function renderGame(ctx, fieldState, mineLayout, mineHints, startTime, fi
                     placePreloaded(ctx, "flaggedCell", x, y);
                     break;
                 case 2:
-                    placePreloaded(ctx, "hint" + mineHints[cellX][cellY] + "Cell", x, y);
+                    placePreloaded(ctx, "hint" + mineHints[cellY][cellX] + "Cell", x, y);
                     break;
                 case 3:
                     placePreloaded(ctx, "mineCell", x, y);

@@ -17,7 +17,7 @@ function sleep(milliseconds) {
 // NOTE: we're only running the experiment with 9x9 fields, but we'll leave groundwork for other fields so I can make this a fully fleshed out web game outwith the dissertation.
 let fieldWidth = 9;
 let fieldHeight = 9;
-let mineLayout = mineGen();
+let mineLayout = mineGen(fieldWidth, fieldHeight);
 let mineHints = hintGen(mineLayout);
 let startTime = 0 // TODO: need to link this with start button
 
@@ -33,8 +33,13 @@ for (let _ = 0; _ < fieldHeight ; _++) {
     fieldState.push(Array(fieldWidth).fill(0))
 }
 
-console.log("fielderfield");
-console.log(fieldState);
+function printer2d(thing) { for (const row of thing) {console.log(row)}}
+// console.log("intial field state:");
+// printer2d(fieldState)
+// console.log("given mine randomisation:");
+// printer2d(mineLayout)
+// console.log("computed mine hints:");
+// printer2d(mineHints)
 
 
 // prepare necessary assets
