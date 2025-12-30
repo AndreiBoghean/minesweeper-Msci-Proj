@@ -108,11 +108,11 @@ function pixelToCell(x, y) {
     return [x, y]
 }
 export function interactHandler(e, ctx, fieldState, mineLayout, mineHints, startTime, fieldWidth, fieldHeight) {
-    if (e.type == "mouseup") {
+    if (e.type == "mousedown") {
         var currentX = e.offsetX;
         var currentY = e.offsetY;
     }
-    else if (e.type == "touchend") {
+    else if (e.type == "touchstart") {
         let touch = e.touches[0]
         var currentX = touch.offsetX;
         var currentY = touch.offsetY;

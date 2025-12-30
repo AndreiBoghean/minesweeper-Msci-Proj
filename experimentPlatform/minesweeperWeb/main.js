@@ -64,5 +64,5 @@ renderGame(gameCtx, fieldState, mineLayout, mineHints, startTime, 9, 9);
 
 
 // TODO: register user action listeners
-gameCanv.addEventListener('mouseup', (e) => { return interactHandler(e, gameCtx, fieldState, mineLayout, mineHints, startTime, 9, 9) });
-// gameCanv.addEventListener('touchend', interactHandler); // relic from touch support.. apprently touches issue both touchend and mouseup? doesnt make sense, but convientient.
+gameCanv.addEventListener('mousedown', (e) => { return interactHandler(e, gameCtx, fieldState, mineLayout, mineHints, startTime, 9, 9) });
+// gameCanv.addEventListener('touchstart', interactHandler); // relic from touch support.. apprently touches issue both touchend and mouseup? doesnt make sense, but convientient.
