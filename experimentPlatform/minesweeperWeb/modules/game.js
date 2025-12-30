@@ -30,22 +30,16 @@ function actionResolve(ctx, fieldState, mineLayout, mineHints, startTime, fieldW
     // TODO: different outcomes according to left click, right click, mine underneath, safe underneath, etc.
     // TODO: long press for flagging on mobile?
 
-    if (action == 0 && fieldState[y][x] != 1) { // if left click for a reveal action, AND the cell isnt flagged (note we disable opening of flagged cells)
+    if (action == 0 && fieldState[y][x] == 0) { // if left click for a reveal action, but only if the cell is an un-flagged closed cell. (importantly - the cell isnt flagged (note we disable opening of flagged cells))
         // fieldState[y][x] = (mineLayout[y][x] == 1) ? 3 : 2 // if there's a mine, the cell state is now mine (3), otherwise open cell (2)
-        var temp = (mineLayout[y][x] == 1) ? 3 : 2 // if there's a mine, the cell state is now mine (3), otherwise open cell (2)
+        fieldState[y][x] = (mineLayout[y][x] == 1) ? 3 : 2 // if there's a mine, the cell state is now mine (3), otherwise open cell (2)
     }
-    else if (action == 1) { // right click for a toggle flag
+    else if (action == 1 && (fieldState[y][x] == 1 || fieldState[y][x] == 0)) { // right click for a toggle flag
         // fieldState[y][x] = fieldState[y][x] == 1 ? 0 : 1; // toggle flag state of the cell.
-        var temp = fieldState[y][x] == 1 ? 0 : 1; // toggle flag state of the cell.
+        fieldState[y][x] = fieldState[y][x] == 1 ? 0 : 1; // toggle flag state of the cell.
     }
-    fieldState[y][x] = temp;
-    console.log("to update:", fieldState[y][x])
-    console.log("temp", temp)
-    console.log("2est:", JSON.stringify(fieldState))
 
-    console.log("action updated")
     renderGame(ctx, fieldState, mineLayout, mineHints, startTime, fieldWidth, fieldHeight);
-    console.log("rerendered")
 }
 
 
