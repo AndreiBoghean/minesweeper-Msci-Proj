@@ -1,4 +1,4 @@
-import {mineGen, hintGen, renderGame} from "/modules/game.js"
+import {mineGen, hintGen, renderGame, interactHandler} from "/modules/game.js"
 import {preloadURL} from "/modules/helpRender.js"
 
 const gameCanv = document.getElementById("gameView");
@@ -35,4 +35,7 @@ renderGame(gameCtx, fieldState, mineHints, 0, 9, 9);
 // note that subsequent game states happen as a result of user actions,
 // hence the processing and subsequent rendering of future game states happens from there.
 
+
 // TODO: register user action listeners
+gameCanv.addEventListener('mouseup', interactHandler);
+// gameCanv.addEventListener('touchend', interactHandler); // relic from touch support.. apprently touches issue both touchend and mouseup? doesnt make sense, but convientient.
