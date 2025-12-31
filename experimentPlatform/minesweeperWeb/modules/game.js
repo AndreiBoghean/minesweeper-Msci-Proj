@@ -2,17 +2,19 @@ import {placePreloaded} from "/modules/helpRender.js"
 
 export function mineGen(fieldWidth, fieldHeight) {
     // TODO: randomisation to ensure a specific number of mines
-    // TODO: seed randomisation with field generation time, so we can re-produce a playthrough from the time it was started.
+    const mineSeed = Math.floor(Date.now()/1000) // current time in seconds
+    let seedIter = mineSeed
+
     var game = []
     for (let y = 0 ; y < fieldHeight ; y++) {
         let row = []
         for (let x = 0 ; x < fieldWidth; x++) {
-            row.push(Math.random() < 0.2 ? 1 : 0);
+            row.push((seedIter = seedIter * 16807 % 2147483647) < (0.2*2147483646) ? 1 : 0); // PRNG sourced from https://gist.github.com/blixt/f17b47c62508be59987b
         }
         game.push(row)
     }
 
-    return game;
+    return [game, mineSeed];
     return [[0, 0, 1, 0, 0, 0, 0, 0, 0],
             [0, 0, 0, 0, 0, 0, 0, 0, 0],
             [0, 0, 0, 0, 0, 0, 0, 0, 0],

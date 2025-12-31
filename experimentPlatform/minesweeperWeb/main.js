@@ -17,7 +17,7 @@ function sleep(milliseconds) {
 // NOTE: we're only running the experiment with 9x9 fields, but we'll leave groundwork for other fields so I can make this a fully fleshed out web game outwith the dissertation.
 let fieldWidth = 9;
 let fieldHeight = 9;
-let mineLayout = mineGen(fieldWidth, fieldHeight);
+let [mineLayout, mineSeed] = mineGen(fieldWidth, fieldHeight);
 let mineHints = hintGen(mineLayout);
 let startTime = 0 // TODO: need to link this with start button
 
