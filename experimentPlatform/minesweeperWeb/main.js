@@ -15,6 +15,7 @@ function sleep(milliseconds) {
 */
 
 // NOTE: we're only running the experiment with 9x9 fields, but we'll leave groundwork for other fields so I can make this a fully fleshed out web game outwith the dissertation.
+
 let fieldWidth = 9;
 let fieldHeight = 9;
 let [mineLayout, mineSeed] = mineGen(fieldWidth, fieldHeight);
@@ -41,6 +42,8 @@ function printer2d(thing) { for (const row of thing) {console.log(row)}}
 // console.log("computed mine hints:");
 // printer2d(mineHints)
 
+let gameInstance = { ctx: gameCtx, fieldState: fieldState, mineLayout: mineLayout, mineHints: mineHints, startTime: startTime, fieldWidth: fieldWidth, fieldHeight: fieldHeight }
+
 
 // prepare necessary assets
 await preloadURL("./assets/background.png", "background");
@@ -58,11 +61,11 @@ await preloadURL("./assets/hint8Cell.png", "hint8Cell"); // field ID 2
 await preloadURL("./assets/mineCell.png", "mineCell"); // field ID 3
 
 // render the first state of the game.
-renderGame(gameCtx, fieldState, mineLayout, mineHints, startTime, 9, 9);
+renderGame(gameInstance);
 // note that subsequent game states happen as a result of user actions,
 // hence the processing and subsequent rendering of future game states happens from there.
 
 
 // TODO: register user action listeners
-gameCanv.addEventListener('mousedown', (e) => { return interactHandler(e, gameCtx, fieldState, mineLayout, mineHints, startTime, 9, 9) });
+gameCanv.addEventListener('mousedown', (e) => { return interactHandler(e, gameInstance) });
 // gameCanv.addEventListener('touchstart', interactHandler); // relic from touch support.. apprently touches issue both touchend and mouseup? doesnt make sense, but convientient.
