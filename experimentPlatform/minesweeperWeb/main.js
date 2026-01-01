@@ -1,4 +1,4 @@
-import {mineGen, hintGen, renderGame, interactHandler} from "/modules/game.js"
+import {mineGen, hintGen, renderGame, interactHandler, timerHandler} from "/modules/game.js"
 import {preloadURL} from "/modules/helpRender.js"
 
 const gameCanv = document.getElementById("gameView");
@@ -20,7 +20,6 @@ let fieldWidth = 9;
 let fieldHeight = 9;
 let [mineLayout, mineSeed] = mineGen(fieldWidth, fieldHeight);
 let mineHints = hintGen(mineLayout);
-let startTime = 0 // TODO: need to link this with start button
 
 /* on each render, we first draw the base board
  * then we draw the mines remaining, restart button, timer
@@ -42,7 +41,13 @@ function printer2d(thing) { for (const row of thing) {console.log(row)}}
 // console.log("computed mine hints:");
 // printer2d(mineHints)
 
-let gameInstance = { ctx: gameCtx, fieldState: fieldState, mineLayout: mineLayout, mineHints: mineHints, startTime: startTime, fieldWidth: fieldWidth, fieldHeight: fieldHeight }
+let gameInstance = {
+    ctx: gameCtx,
+    fieldState: fieldState,
+    mineSeed: mineSeed, mineLayout: mineLayout, mineHints: mineHints,
+    fieldWidth: fieldWidth, fieldHeight: fieldHeight,
+    actionRecords: [], playStart: 0
+}
 
 
 // prepare necessary assets
@@ -59,6 +64,10 @@ await preloadURL("./assets/hint6Cell.png", "hint6Cell"); // field ID 2
 await preloadURL("./assets/hint7Cell.png", "hint7Cell"); // field ID 2
 await preloadURL("./assets/hint8Cell.png", "hint8Cell"); // field ID 2
 await preloadURL("./assets/mineCell.png", "mineCell"); // field ID 3
+await preloadURL("./assets/edgeSegmentOn.png", "edgeSegmentOn");
+await preloadURL("./assets/edgeSegmentOff.png", "edgeSegmentOff");
+await preloadURL("./assets/centerSegmentOn.png", "centerSegmentOn");
+await preloadURL("./assets/centerSegmentOff.png", "centerSegmentOff");
 
 // render the first state of the game.
 renderGame(gameInstance);
@@ -67,5 +76,8 @@ renderGame(gameInstance);
 
 
 // TODO: register user action listeners
+// HACK: interactHandler triggers a re-render, and timer rendering requires the timer handler be set up,
+// so the timer handler needs to be registered before the interact for the necessary data to exist on the first execution of the ineract handler.
+gameCanv.addEventListener('mousedown', (e) => { return timerHandler(e, gameInstance) }, {once : true});
 gameCanv.addEventListener('mousedown', (e) => { return interactHandler(e, gameInstance) });
 // gameCanv.addEventListener('touchstart', interactHandler); // relic from touch support.. apprently touches issue both touchend and mouseup? doesnt make sense, but convientient.

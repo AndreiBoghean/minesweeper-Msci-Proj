@@ -51,21 +51,26 @@ export function hintGen(mineLayout) {
             [0, 0, 0, 0, 0, 0, 0, 0, 0]]
 }
 
-function actionResolve(game, action, x, y) {
-    console.log("action came in")
-    console.log("test:", JSON.stringify(game.fieldState))
+function actionResolve(game, action, x, y, timestamp) {
     // TODO: different outcomes according to left click, right click, mine underneath, safe underneath, etc.
     // TODO: long press for flagging on mobile?
+
+    let actionRecord = { actionID: action, x: x, y: y, timestamp: timestamp, successful: false }
+    // ^ note: the timestamp is the miliseconds relative to when the "context" was created (i.e. ms since document loaded (apparently))
+    // since it's relative to a fixed landmark, in processing we can just subtract the timestamp of the first action.
 
     if (action == 0 && game.fieldState[y][x] == 0) { // if left click for a reveal action, but only if the cell is an un-flagged closed cell. (importantly - the cell isnt flagged (note we disable opening of flagged cells))
         // fieldState[y][x] = (mineLayout[y][x] == 1) ? 3 : 2 // if there's a mine, the cell state is now mine (3), otherwise open cell (2)
         game.fieldState[y][x] = (game.mineLayout[y][x] == 1) ? 3 : 2 // if there's a mine, the cell state is now mine (3), otherwise open cell (2)
+        actionRecord.successful = true;
     }
     else if (action == 1 && (game.fieldState[y][x] == 1 || game.fieldState[y][x] == 0)) { // right click for a toggle flag
         // fieldState[y][x] = fieldState[y][x] == 1 ? 0 : 1; // toggle flag state of the cell.
         game.fieldState[y][x] = game.fieldState[y][x] == 1 ? 0 : 1; // toggle flag state of the cell.
+        actionRecord.successful = true;
     }
 
+    game.actionRecords.push(actionRecord);
     renderGame(game);
 }
 
@@ -77,6 +82,7 @@ const gridSquareSize = 32; // the pixel dimensions of a cell for us right now is
 export function renderGame(game) {
     placePreloaded(game.ctx, "background", 0, 0);
 
+    // grid rendering
     for (let y = gridStartY ; y < gridStartY+game.fieldHeight*gridSquareSize ; y += gridSquareSize) {
         for (let x = gridStartX ; x < gridStartX+game.fieldWidth*gridSquareSize; x += gridSquareSize) {
             let [cellX, cellY] = pixelToCell(x, y);
@@ -102,6 +108,72 @@ export function renderGame(game) {
             }
         }
     }
+
+    // counters for mines remaining and timer
+
+    const totalMines = game.mineLayout.reduce((r1, r2) => {return r1.concat(r2)}).reduce((a, b) => {return a+b});
+    const flaggedMines = game.fieldState.reduce((r1, r2) => {return r1.concat(r2)}).filter((a) => {return a == 1}).length;
+    console.log(totalMines, flaggedMines)
+    const minesRemaining = Math.max(totalMines-flaggedMines, 0);
+
+    const msElapsed = game.actionRecords.length != 0 ? Date.now() - game.playStart : 0;
+    const secondsElapsed = Math.round(msElapsed/1000);
+
+    console.log("mines remaining:", minesRemaining);
+    console.log("seconds (and ms) elapsed:", secondsElapsed, "(" + msElapsed + ")");
+
+    const segments = { // segments are addressed in the order: top, top-right, bottom-right, bottom, bottom-left, top-left, centre (i.e. clockwise from the top, and then the centre.)
+        0 : [1, 1, 1, 1, 1, 1, 0],
+        1 : [0, 1, 1, 0, 0, 0, 0],
+        2 : [1, 1, 0, 1, 1, 0, 1],
+        3 : [1, 1, 1, 1, 0, 0, 1],
+        4 : [0, 1, 1, 0, 0, 1, 1],
+        5 : [1, 0, 1, 1, 0, 1, 1],
+        6 : [1, 0, 1, 1, 1, 1, 1],
+        7 : [1, 1, 1, 0, 0, 1, 0],
+        8 : [1, 1, 1, 1, 1, 1, 1],
+        9 : [1, 1, 1, 1, 0, 1, 1],
+    }
+
+    // spacing notes:
+    // first black rectangle offset relative to game frame: x:34, y:32
+    // second black rectangle offset relative to game frame: x:223, y:32
+    // black rectangle dimensions - 78x46
+    // black pixels between digits - 4
+    // black pixels between left edge to leftmost segment - 2 (note that pixels between right edge and rightmost segment should also be 2, and should match visually)
+    // black pixels between top edge and topmost segment - 2 (similar as above)
+    // black pixels between left-most side of left segment and left-most side of right segment - 16
+    // black pixels between left-most side of left segment and the center segment - 4
+    // segment width (include 1px black border) - 26
+    // segments all (almost) touch, with a 1 pixel border. this is true between all edge segments both at corners and the centre splits.
+    // sidenote: resolution of segment image file matches other assets, but perceptually the pixels comprising segments are actually half as precise. i.e. one visual pixel makes up 4 actual pixels.
+    function render_segment(ctx, x, y, num) {
+        // NOTE: this function used to pre-clear the segment area with black before drawing the numbers.
+        // for some reason, doing that would mean subsequent calls to render_segment would not render anything.
+        // since pre-clearing with black isnt necessary, this issue wasnt investigated further but is usesful to note.
+        // ctx.rect(x, y, 78, 46);
+        // ctx.fillStyle = "black";
+        // ctx.fill();
+        console.log("clearing with black")
+
+        let renderable = String(num).padStart(3, "0");
+        for (let i = 0 ; i < 3 ; i++) {
+            let digit = parseInt(renderable[i]);
+            
+            placePreloaded(ctx, "edgeSegment"   + (segments[digit][0] ? "On" : "Off"), x+2+ 2, y+2   ,   0); // top
+            placePreloaded(ctx, "edgeSegment"   + (segments[digit][1] ? "On" : "Off"), x+2+22, y+2+ 2,  90); // top right
+            placePreloaded(ctx, "edgeSegment"   + (segments[digit][2] ? "On" : "Off"), x+2+22, y+2+22,  90); // bottom right
+            placePreloaded(ctx, "edgeSegment"   + (segments[digit][3] ? "On" : "Off"), x+2+20, y+2+42, 180); // bottom
+            placePreloaded(ctx, "edgeSegment"   + (segments[digit][4] ? "On" : "Off"), x+2   , y+2+40, 270); // bottom left
+            placePreloaded(ctx, "edgeSegment"   + (segments[digit][5] ? "On" : "Off"), x+2   , y+2+20, 270); // top left
+            placePreloaded(ctx, "centerSegment" + (segments[digit][6] ? "On" : "Off"), x+2+ 4, y+2+18,   0); // center
+
+            x += 26;
+        }
+    }
+
+    render_segment(game.ctx,  34, 32, minesRemaining);
+    render_segment(game.ctx, 223, 32, secondsElapsed);
 }
 
 function pixelToCell(x, y) {
@@ -109,6 +181,7 @@ function pixelToCell(x, y) {
     y = Math.floor((y - gridStartY)/gridSquareSize)
     return [x, y]
 }
+
 export function interactHandler(e, game) {
     if (e.type == "mousedown") {
         var currentX = e.offsetX;
@@ -126,7 +199,13 @@ export function interactHandler(e, game) {
     console.log(e)
 
     // TODO: this assumes mouse.. touch wont support flagging right now.
-    if (e.button == 0 || e.button == 2) actionResolve(game, e.button == 0 ? 0 : 1, x, y);
+    if (e.button == 0 || e.button == 2) actionResolve(game, e.button == 0 ? 0 : 1, x, y, e.timeStamp);
     // ^ note: we ignore events that arent left or right click
 }
 
+export function timerHandler(e, game) {
+    game.playStart = Date.now() // event timestamps are relative to context creation (in this case meaning page load), but we want to use epoch time. We store the epoch for the first ever event, as a reference point.
+    // the only goal here is to be regularly re-rendering the game every second, to update the timer display.
+    // HACK: maybe change to re-render timer only, instead of the whole board. as it is, it's wastefully re-rendering everything, but the performance impact probably wont be noticed at this scale.
+    setInterval(() => {renderGame(game)}, 1000);
+}
