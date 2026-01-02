@@ -52,6 +52,7 @@ export function hintGen(mineLayout) {
 }
 
 function actionResolve(game, action, x, y, timestamp) {
+    console.log("got action", action);
     // TODO: different outcomes according to left click, right click, mine underneath, safe underneath, etc.
     // TODO: long press for flagging on mobile?
 
@@ -67,6 +68,7 @@ function actionResolve(game, action, x, y, timestamp) {
         }
         else { // the cell is safe and was oppened
             game.fieldState[y][x] = 2
+            console.log("trying classic zero opener")
 
             // if the revealed hint shows 0, then auto-open all neighbours.
             let candidatesForOpen = [[x, y]];
@@ -90,6 +92,63 @@ function actionResolve(game, action, x, y, timestamp) {
     else if (action == 1 && (game.fieldState[y][x] == 1 || game.fieldState[y][x] == 0)) { // right click for a toggle flag
         game.fieldState[y][x] = game.fieldState[y][x] == 1 ? 0 : 1; // toggle flag state of the cell.
         actionRecord.successful = true;
+    }
+    else if (action == 2 && game.fieldState[y][x] == 2) { // if the action is a left+right click, and the cell is an open cell with a number..
+        // first count the number of neighbouring flags
+        let flaggedNeighbours = 0
+        for (let yAdj = y-1 ; yAdj <= y+1 ; yAdj += 1) { // all neighbour y positions
+            for (let xAdj = x-1 ; xAdj <= x+1 ; xAdj += 1) { // all neighbour x positions
+                if ((yAdj >= 0 && yAdj < game.mineHints.length) && (xAdj >= 0 && xAdj < game.mineHints[0].length) && game.fieldState[yAdj][xAdj] == 1) // if the position combination is on the grid, and the cell is flagged...
+                {
+                    flaggedNeighbours += 1;
+                }
+            }
+        }
+        console.log("flagged neighbours:", flaggedNeighbours)
+
+        // if the neighbouring flags equal the hint number, then open all un-flagged neighbours.
+        // note that this should trigger the cascading reveal is applicable.
+        const _y=y, _x=x
+        // FIX: currently, this is more or less a copy of the above propogation code, and should be abstracted.
+        if (flaggedNeighbours == game.mineHints[y][x]) {
+            for (let _yAdj = _y-1 ; _yAdj <= _y+1 ; _yAdj += 1) { // all neighbour y positions
+                for (let _xAdj = _x-1 ; _xAdj <= _x+1 ; _xAdj += 1) { // all neighbour x positions
+                    if ((_yAdj >= 0 && _yAdj < game.mineHints.length) && (_xAdj >= 0 && _xAdj < game.mineHints[0].length) && game.fieldState[_yAdj][_xAdj] == 0) // if the position combination is on the grid, and the cell is unflagged...
+                    {
+                        y = _yAdj;
+                        x = _xAdj;
+                        // FIX: this executes an attempt to open a cell, and is duplicate from our code for left click actions.
+                        if (game.mineLayout[y][x] == 1) { // if there's a mine, the cell state is now mine (3), otherwise open cell (2)
+                            game.fieldState[y][x] = 3
+                        }
+                        else { // the cell is safe and was oppened
+                            game.fieldState[y][x] = 2
+
+                            // if the revealed hint shows 0, then auto-open all neighbours.
+                            let candidatesForOpen = [[x, y]];
+                            while (candidatesForOpen.length > 0) {
+                                const [xCand, yCand] = candidatesForOpen.pop();
+
+                                if (game.mineHints[yCand][xCand] == 0) { // if the cell's hint is 0
+                                    for (let yAdj = yCand-1 ; yAdj <= yCand+1 ; yAdj += 1) { // all neighbour y positions
+                                        for (let xAdj = xCand-1 ; xAdj <= xCand+1 ; xAdj += 1) { // all neighbour x positions
+                                            if ((yAdj >= 0 && yAdj < game.mineHints.length) && (xAdj >= 0 && xAdj < game.mineHints[0].length) && game.fieldState[yAdj][xAdj] == 0) // if the position combination is on the grid, and the cell is unflagged...
+                                            {
+                                                game.fieldState[yAdj][xAdj] = 2; // mark as opened
+                                                candidatesForOpen.push([xAdj, yAdj]); // add newly opened cell to the pool of candidates for checking if it's a 0 hint
+                                                console.log("trying to check also", xAdj, yAdj)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        // FIX: end of duplicated code.
+                    }
+                }
+            }
+        }
+
     }
 
     game.actionRecords.push(actionRecord);
@@ -135,14 +194,14 @@ export function renderGame(game) {
 
     const totalMines = game.mineLayout.reduce((r1, r2) => {return r1.concat(r2)}).reduce((a, b) => {return a+b});
     const flaggedMines = game.fieldState.reduce((r1, r2) => {return r1.concat(r2)}).filter((a) => {return a == 1}).length;
-    console.log(totalMines, flaggedMines)
+
     const minesRemaining = Math.max(totalMines-flaggedMines, 0);
 
     const msElapsed = game.actionRecords.length != 0 ? Date.now() - game.playStart : 0;
     const secondsElapsed = Math.round(msElapsed/1000);
 
-    console.log("mines remaining:", minesRemaining);
-    console.log("seconds (and ms) elapsed:", secondsElapsed, "(" + msElapsed + ")");
+    // console.log("mines remaining:", minesRemaining);
+    // console.log("seconds (and ms) elapsed:", secondsElapsed, "(" + msElapsed + ")");
 
     const segments = { // segments are addressed in the order: top, top-right, bottom-right, bottom, bottom-left, top-left, centre (i.e. clockwise from the top, and then the centre.)
         0 : [1, 1, 1, 1, 1, 1, 0],
@@ -176,7 +235,6 @@ export function renderGame(game) {
         // ctx.rect(x, y, 78, 46);
         // ctx.fillStyle = "black";
         // ctx.fill();
-        console.log("clearing with black")
 
         let renderable = String(num).padStart(3, "0");
         for (let i = 0 ; i < 3 ; i++) {
@@ -204,10 +262,19 @@ function pixelToCell(x, y) {
     return [x, y]
 }
 
+let leftDown = false;
+let rightDown = false;
 export function interactHandler(e, game) {
     if (e.type == "mousedown") {
         var currentX = e.offsetX;
         var currentY = e.offsetY;
+
+        if (e.button == 0) leftDown = true;
+        if (e.button == 2) rightDown = true;
+    }
+    else if (e.type == "mouseup") { // we dont execute any actions on mouseup, so getting currentXY isnt necessary.
+        if (e.button == 0) leftDown = false;
+        if (e.button == 2) rightDown = false;
     }
     else if (e.type == "touchstart") {
         let touch = e.touches[0]
@@ -216,13 +283,18 @@ export function interactHandler(e, game) {
     }
     else { console.log("panic! we've been given a non-mouse non-touch event! how did this happen :("); }
 
+    // if (e.button == 0 || e.button == 2) actionResolve(game, e.button == 0 ? 0 : 1, x, y, e.timeStamp);
+    // // ^ note: we ignore events that arent left or right click
+
+    // TODO: this assumes mouse.. touch wont support flagging right now.
+    if (e.type != "mousedown" || (!leftDown && !rightDown)) return;
+
     const [x, y] = pixelToCell(currentX, currentY);
     console.log(x, y)
     console.log(e)
+    console.log("leftDown?", leftDown, "rightDown?", rightDown);
 
-    // TODO: this assumes mouse.. touch wont support flagging right now.
-    if (e.button == 0 || e.button == 2) actionResolve(game, e.button == 0 ? 0 : 1, x, y, e.timeStamp);
-    // ^ note: we ignore events that arent left or right click
+    actionResolve(game, leftDown ? (rightDown ? 2 : 0) : 1, x, y, e.timeStamp); // HACK: if the leftDown conditional fails, then implicitly rightDown must be true, because the return above didnt trigger.
 }
 
 export function timerHandler(e, game) {

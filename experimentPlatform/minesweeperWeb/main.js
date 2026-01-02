@@ -78,6 +78,7 @@ renderGame(gameInstance);
 // TODO: register user action listeners
 // HACK: interactHandler triggers a re-render, and timer rendering requires the timer handler be set up,
 // so the timer handler needs to be registered before the interact for the necessary data to exist on the first execution of the ineract handler.
-gameCanv.addEventListener('mousedown', (e) => { return timerHandler(e, gameInstance) }, {once : true});
-gameCanv.addEventListener('mousedown', (e) => { return interactHandler(e, gameInstance) });
+gameCanv.addEventListener("mousedown", (e) => { return timerHandler(e, gameInstance) }, {once : true});
+gameCanv.addEventListener("mousedown", (e) => { return interactHandler(e, gameInstance) });
+gameCanv.addEventListener("mouseup"  , (e) => { return interactHandler(e, gameInstance) });
 // gameCanv.addEventListener('touchstart', interactHandler); // relic from touch support.. apprently touches issue both touchend and mouseup? doesnt make sense, but convientient.
