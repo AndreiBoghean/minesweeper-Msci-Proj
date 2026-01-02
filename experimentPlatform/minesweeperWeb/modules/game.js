@@ -15,15 +15,6 @@ export function mineGen(fieldWidth, fieldHeight) {
     }
 
     return [game, mineSeed];
-    return [[0, 0, 1, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0]]
 }
 
 export function hintGen(mineLayout) {
@@ -40,15 +31,37 @@ export function hintGen(mineLayout) {
     // ^ note: thanks javascript for nice and easy out of bounds fallback to 0 :) I still hate you though...
 
     return hints;
-    return [[0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 1, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0]]
+}
+
+function neighbour_operation(w, h, x, y, fun) {
+    for (let yAdj = Math.max(y-1, 0) ; yAdj <= Math.min(y+1, h-1) ; yAdj += 1) // all neighbour y positions
+        for (let xAdj = Math.max(x-1, 0) ; xAdj <= Math.min(x+1, w-1) ; xAdj += 1) // all neighbour x positions
+            fun(xAdj, yAdj);
+}
+
+function cell_reveal(game, x, y) {
+    if (game.mineLayout[y][x] == 1) { // if there's a mine, the cell state is now mine (3), otherwise open cell (2)
+        game.fieldState[y][x] = 3
+    }
+    else { // the cell is safe
+        game.fieldState[y][x] = 2 // mark it as an open cell
+
+        // if the revealed hint shows 0, then auto-open all neighbours.
+        // check it for auto-opening of cells numbered 0.
+        let candidatesForOpen = [[x, y]]; // a list of cells to check, starting with patient zero.
+        while (candidatesForOpen.length > 0) {
+            const [xCand, yCand] = candidatesForOpen.pop();
+            if (game.mineHints[yCand][xCand] != 0) continue; // if the cell's hint isnt 0, skip opening.
+
+            neighbour_operation(game.fieldWidth, game.fieldHeight, xCand, yCand, (xAdj, yAdj) => { // for each of the cell's neighbours that isnt off the field..
+                if (game.fieldState[yAdj][xAdj] == 0) // if the neighbour is closed..
+                {
+                    game.fieldState[yAdj][xAdj] = 2; // mark as opened
+                    candidatesForOpen.push([xAdj, yAdj]); // add newly opened cell to the pool of candidates.
+                }
+            });
+        }
+    }
 }
 
 function actionResolve(game, action, x, y, timestamp) {
@@ -62,32 +75,7 @@ function actionResolve(game, action, x, y, timestamp) {
 
     if (action == 0 && game.fieldState[y][x] == 0) { // if left click for a reveal action, but only if the cell is an un-flagged closed cell. (importantly - the cell isnt flagged (note we disable opening of flagged cells))
         actionRecord.successful = true;
-
-        if (game.mineLayout[y][x] == 1) { // if there's a mine, the cell state is now mine (3), otherwise open cell (2)
-            game.fieldState[y][x] = 3
-        }
-        else { // the cell is safe and was oppened
-            game.fieldState[y][x] = 2
-            console.log("trying classic zero opener")
-
-            // if the revealed hint shows 0, then auto-open all neighbours.
-            let candidatesForOpen = [[x, y]];
-            while (candidatesForOpen.length > 0) {
-                const [xCand, yCand] = candidatesForOpen.pop();
-
-                if (game.mineHints[yCand][xCand] == 0) { // if the cell's hint is 0
-                    for (let yAdj = yCand-1 ; yAdj <= yCand+1 ; yAdj += 1) { // all neighbour y positions
-                        for (let xAdj = xCand-1 ; xAdj <= xCand+1 ; xAdj += 1) { // all neighbour x positions
-                            if ((yAdj >= 0 && yAdj < game.mineHints.length) && (xAdj >= 0 && xAdj < game.mineHints[0].length) && game.fieldState[yAdj][xAdj] == 0) // if the position combination is on the grid, and the cell is unflagged...
-                            {
-                                game.fieldState[yAdj][xAdj] = 2; // mark as opened
-                                candidatesForOpen.push([xAdj, yAdj]); // add newly opened cell to the pool of candidates for checking if it's a 0 hint
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        cell_reveal(game, x, y)
     }
     else if (action == 1 && (game.fieldState[y][x] == 1 || game.fieldState[y][x] == 0)) { // right click for a toggle flag
         game.fieldState[y][x] = game.fieldState[y][x] == 1 ? 0 : 1; // toggle flag state of the cell.
@@ -96,59 +84,17 @@ function actionResolve(game, action, x, y, timestamp) {
     else if (action == 2 && game.fieldState[y][x] == 2) { // if the action is a left+right click, and the cell is an open cell with a number..
         // first count the number of neighbouring flags
         let flaggedNeighbours = 0
-        for (let yAdj = y-1 ; yAdj <= y+1 ; yAdj += 1) { // all neighbour y positions
-            for (let xAdj = x-1 ; xAdj <= x+1 ; xAdj += 1) { // all neighbour x positions
-                if ((yAdj >= 0 && yAdj < game.mineHints.length) && (xAdj >= 0 && xAdj < game.mineHints[0].length) && game.fieldState[yAdj][xAdj] == 1) // if the position combination is on the grid, and the cell is flagged...
-                {
-                    flaggedNeighbours += 1;
-                }
-            }
-        }
+
+        neighbour_operation(game.fieldWidth, game.fieldHeight, x, y, (xAdj, yAdj) => { // for each of the cell's neighbours that isnt off the field..
+            if (game.fieldState[yAdj][xAdj] == 1) flaggedNeighbours += 1; // note field state 1 is a flagged cell.
+        });
         console.log("flagged neighbours:", flaggedNeighbours)
 
         // if the neighbouring flags equal the hint number, then open all un-flagged neighbours.
-        // note that this should trigger the cascading reveal is applicable.
-        const _y=y, _x=x
-        // FIX: currently, this is more or less a copy of the above propogation code, and should be abstracted.
-        if (flaggedNeighbours == game.mineHints[y][x]) {
-            for (let _yAdj = _y-1 ; _yAdj <= _y+1 ; _yAdj += 1) { // all neighbour y positions
-                for (let _xAdj = _x-1 ; _xAdj <= _x+1 ; _xAdj += 1) { // all neighbour x positions
-                    if ((_yAdj >= 0 && _yAdj < game.mineHints.length) && (_xAdj >= 0 && _xAdj < game.mineHints[0].length) && game.fieldState[_yAdj][_xAdj] == 0) // if the position combination is on the grid, and the cell is unflagged...
-                    {
-                        y = _yAdj;
-                        x = _xAdj;
-                        // FIX: this executes an attempt to open a cell, and is duplicate from our code for left click actions.
-                        if (game.mineLayout[y][x] == 1) { // if there's a mine, the cell state is now mine (3), otherwise open cell (2)
-                            game.fieldState[y][x] = 3
-                        }
-                        else { // the cell is safe and was oppened
-                            game.fieldState[y][x] = 2
-
-                            // if the revealed hint shows 0, then auto-open all neighbours.
-                            let candidatesForOpen = [[x, y]];
-                            while (candidatesForOpen.length > 0) {
-                                const [xCand, yCand] = candidatesForOpen.pop();
-
-                                if (game.mineHints[yCand][xCand] == 0) { // if the cell's hint is 0
-                                    for (let yAdj = yCand-1 ; yAdj <= yCand+1 ; yAdj += 1) { // all neighbour y positions
-                                        for (let xAdj = xCand-1 ; xAdj <= xCand+1 ; xAdj += 1) { // all neighbour x positions
-                                            if ((yAdj >= 0 && yAdj < game.mineHints.length) && (xAdj >= 0 && xAdj < game.mineHints[0].length) && game.fieldState[yAdj][xAdj] == 0) // if the position combination is on the grid, and the cell is unflagged...
-                                            {
-                                                game.fieldState[yAdj][xAdj] = 2; // mark as opened
-                                                candidatesForOpen.push([xAdj, yAdj]); // add newly opened cell to the pool of candidates for checking if it's a 0 hint
-                                                console.log("trying to check also", xAdj, yAdj)
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        // FIX: end of duplicated code.
-                    }
-                }
-            }
-        }
-
+        if (flaggedNeighbours == game.mineHints[y][x])
+            neighbour_operation(game.fieldWidth, game.fieldHeight, x, y, (xAdj, yAdj) => { // for each of the cell's neighbours that isnt off the field..
+                if (game.fieldState[yAdj][xAdj] == 0) cell_reveal(game, xAdj, yAdj); // if the neighbour is hidden unflagged, then reveal.
+            });
     }
 
     game.actionRecords.push(actionRecord);
@@ -282,9 +228,6 @@ export function interactHandler(e, game) {
         var currentY = touch.offsetY;
     }
     else { console.log("panic! we've been given a non-mouse non-touch event! how did this happen :("); }
-
-    // if (e.button == 0 || e.button == 2) actionResolve(game, e.button == 0 ? 0 : 1, x, y, e.timeStamp);
-    // // ^ note: we ignore events that arent left or right click
 
     // TODO: this assumes mouse.. touch wont support flagging right now.
     if (e.type != "mousedown" || (!leftDown && !rightDown)) return;
