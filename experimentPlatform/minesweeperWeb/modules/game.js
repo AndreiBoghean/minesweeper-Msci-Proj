@@ -60,12 +60,34 @@ function actionResolve(game, action, x, y, timestamp) {
     // since it's relative to a fixed landmark, in processing we can just subtract the timestamp of the first action.
 
     if (action == 0 && game.fieldState[y][x] == 0) { // if left click for a reveal action, but only if the cell is an un-flagged closed cell. (importantly - the cell isnt flagged (note we disable opening of flagged cells))
-        // fieldState[y][x] = (mineLayout[y][x] == 1) ? 3 : 2 // if there's a mine, the cell state is now mine (3), otherwise open cell (2)
-        game.fieldState[y][x] = (game.mineLayout[y][x] == 1) ? 3 : 2 // if there's a mine, the cell state is now mine (3), otherwise open cell (2)
         actionRecord.successful = true;
+
+        if (game.mineLayout[y][x] == 1) { // if there's a mine, the cell state is now mine (3), otherwise open cell (2)
+            game.fieldState[y][x] = 3
+        }
+        else { // the cell is safe and was oppened
+            game.fieldState[y][x] = 2
+
+            // if the revealed hint shows 0, then auto-open all neighbours.
+            let candidatesForOpen = [[x, y]];
+            while (candidatesForOpen.length > 0) {
+                const [xCand, yCand] = candidatesForOpen.pop();
+
+                if (game.mineHints[yCand][xCand] == 0) { // if the cell's hint is 0
+                    for (let yAdj = yCand-1 ; yAdj <= yCand+1 ; yAdj += 1) { // all neighbour y positions
+                        for (let xAdj = xCand-1 ; xAdj <= xCand+1 ; xAdj += 1) { // all neighbour x positions
+                            if ((yAdj >= 0 && yAdj < game.mineHints.length) && (xAdj >= 0 && xAdj < game.mineHints[0].length) && game.fieldState[yAdj][xAdj] == 0) // if the position combination is on the grid, and the cell is unflagged...
+                            {
+                                game.fieldState[yAdj][xAdj] = 2; // mark as opened
+                                candidatesForOpen.push([xAdj, yAdj]); // add newly opened cell to the pool of candidates for checking if it's a 0 hint
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
     else if (action == 1 && (game.fieldState[y][x] == 1 || game.fieldState[y][x] == 0)) { // right click for a toggle flag
-        // fieldState[y][x] = fieldState[y][x] == 1 ? 0 : 1; // toggle flag state of the cell.
         game.fieldState[y][x] = game.fieldState[y][x] == 1 ? 0 : 1; // toggle flag state of the cell.
         actionRecord.successful = true;
     }
