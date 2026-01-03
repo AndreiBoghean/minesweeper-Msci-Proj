@@ -1,4 +1,4 @@
-import {mineGen, hintGen, renderGame, interactHandler, timerHandler} from "/modules/game.js"
+import {gameInit, renderGame, interactHandler} from "/modules/game.js"
 import {preloadURL} from "/modules/helpRender.js"
 
 const gameCanv = document.getElementById("gameView");
@@ -16,39 +16,14 @@ function sleep(milliseconds) {
 
 // NOTE: we're only running the experiment with 9x9 fields, but we'll leave groundwork for other fields so I can make this a fully fleshed out web game outwith the dissertation.
 
-let fieldWidth = 9;
-let fieldHeight = 9;
-let [mineLayout, mineSeed] = mineGen(fieldWidth, fieldHeight, 10);
-let mineHints = hintGen(mineLayout);
-
 /* on each render, we first draw the base board
  * then we draw the mines remaining, restart button, timer
  * and lastly the grid.
  *
  * grid drawing is either: 0. a closed cell, 1. a closed flagged cell, 2. a numbered open cell with hint 0-9 (0 renders no number), 3. a mine (or explosion)
 */
-// prepare the starting field.
-let fieldState = []
-for (let _ = 0; _ < fieldHeight ; _++) {
-    fieldState.push(Array(fieldWidth).fill(0))
-}
 
-function printer2d(thing) { for (const row of thing) {console.log(row)}}
-// console.log("intial field state:");
-// printer2d(fieldState)
-// console.log("given mine randomisation:");
-// printer2d(mineLayout)
-// console.log("computed mine hints:");
-// printer2d(mineHints)
-
-let gameInstance = {
-    ctx: gameCtx,
-    fieldState: fieldState, finished: false,
-    mineSeed: mineSeed, mineLayout: mineLayout, mineHints: mineHints,
-    fieldWidth: fieldWidth, fieldHeight: fieldHeight,
-    actionRecords: [], playStart: 0
-}
-
+let gameInstance = gameInit(gameCtx, 9, 9, 10);
 
 // prepare necessary assets
 await preloadURL("./assets/background.png", "background");
@@ -71,14 +46,13 @@ await preloadURL("./assets/centerSegmentOff.png", "centerSegmentOff");
 
 // render the first state of the game.
 renderGame(gameInstance);
-// note that subsequent game states happen as a result of user actions,
-// hence the processing and subsequent rendering of future game states happens from there.
-
+// note - subsequent states are triggered by user actions, so there is no game loop. there is however a regular render loop every second that is independent of actions.
 
 // TODO: register user action listeners
 // HACK: interactHandler triggers a re-render, and timer rendering requires the timer handler be set up,
 // so the timer handler needs to be registered before the interact for the necessary data to exist on the first execution of the ineract handler.
-gameCanv.addEventListener("mousedown", (e) => { return timerHandler(e, gameInstance) }, {once : true});
+
+// gameCanv.addEventListener("mousedown", (e) => { return timerHandler(e, gameInstance) }, {once : true});
 gameCanv.addEventListener("mousedown", (e) => { return interactHandler(e, gameInstance) });
 gameCanv.addEventListener("mouseup"  , (e) => { return interactHandler(e, gameInstance) });
 // gameCanv.addEventListener('touchstart', interactHandler); // relic from touch support.. apprently touches issue both touchend and mouseup? doesnt make sense, but convientient.

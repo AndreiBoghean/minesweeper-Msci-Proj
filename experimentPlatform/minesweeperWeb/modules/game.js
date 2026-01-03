@@ -1,5 +1,39 @@
 import {placePreloaded} from "/modules/helpRender.js"
 
+export function gameInit(ctx, fieldWidth, fieldHeight, mineCount) {
+    // prepare the starting field.
+    let fieldState = []
+    for (let _ = 0; _ < fieldHeight ; _++) {
+        fieldState.push(Array(fieldWidth).fill(0))
+    }
+
+    // randomly generate mine placement
+    let [mineLayout, mineSeed] = mineGen(fieldWidth, fieldHeight, mineCount);
+    // count hints from mine placement
+    let mineHints = hintGen(mineLayout);
+
+    let gameInstance = {
+        ctx: ctx,
+        fieldState: fieldState, finished: false,
+        mineSeed: mineSeed, mineLayout: mineLayout, mineHints: mineHints,
+        fieldWidth: fieldWidth, fieldHeight: fieldHeight,
+        actionRecords: [], playStart: 0
+    }
+
+    /*
+    function printer2d(thing) { for (const row of thing) {console.log(row)}}
+    console.log("intial field state:");
+    printer2d(fieldState)
+    console.log("given mine randomisation:");
+    printer2d(mineLayout)
+    console.log("computed mine hints:");
+    printer2d(mineHints)
+    // */
+
+
+    return gameInstance;
+}
+
 export function mineGen(fieldWidth, fieldHeight, mineCount) {
     // TODO: randomisation to ensure a specific number of mines
     const mineSeed = Math.floor(Date.now()/1000) // current time in seconds
@@ -105,7 +139,12 @@ function actionResolve(game, action, x, y, timestamp) {
             });
     }
 
-    if (actionRecord.successful) game.actionRecords.push(actionRecord);
+    if (actionRecord.successful) {
+        // if it's the first user action, sync the timer with it.
+        if (game.actionRecords.length == 0) timerLoopHandler(game);
+
+        game.actionRecords.push(actionRecord);
+    }
 
     // WARN: copy+paste from render logic. todo: reduce duplication
     let remainingEmptyCells = 0;
@@ -257,11 +296,10 @@ export function interactHandler(e, game) {
     console.log(x, y)
     console.log(e)
     console.log("leftDown?", leftDown, "rightDown?", rightDown);
-
-    actionResolve(game, leftDown ? (rightDown ? 2 : 0) : 1, x, y, e.timeStamp); // HACK: if the leftDown conditional fails, then implicitly rightDown must be true, because the return above didnt trigger.
+    if (x >= 0 && x < game.fieldWidth && y >= 0 && y < game.fieldHeight) actionResolve(game, leftDown ? (rightDown ? 2 : 0) : 1, x, y, e.timeStamp); // HACK: if the leftDown conditional fails, then implicitly rightDown must be true, because the return above didnt trigger.
 }
 
-export function timerHandler(e, game) {
+export function timerLoopHandler(game) {
     game.playStart = Date.now() // event timestamps are relative to context creation (in this case meaning page load), but we want to use epoch time. We store the epoch for the first ever event, as a reference point.
     // the only goal here is to be regularly re-rendering the game every second, to update the timer display.
     // HACK: maybe change to re-render timer only, instead of the whole board. as it is, it's wastefully re-rendering everything, but the performance impact probably wont be noticed at this scale.
