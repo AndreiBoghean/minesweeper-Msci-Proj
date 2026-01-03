@@ -18,7 +18,7 @@ function sleep(milliseconds) {
 
 let fieldWidth = 9;
 let fieldHeight = 9;
-let [mineLayout, mineSeed] = mineGen(fieldWidth, fieldHeight);
+let [mineLayout, mineSeed] = mineGen(fieldWidth, fieldHeight, 10);
 let mineHints = hintGen(mineLayout);
 
 /* on each render, we first draw the base board
@@ -43,7 +43,7 @@ function printer2d(thing) { for (const row of thing) {console.log(row)}}
 
 let gameInstance = {
     ctx: gameCtx,
-    fieldState: fieldState,
+    fieldState: fieldState, finished: false,
     mineSeed: mineSeed, mineLayout: mineLayout, mineHints: mineHints,
     fieldWidth: fieldWidth, fieldHeight: fieldHeight,
     actionRecords: [], playStart: 0

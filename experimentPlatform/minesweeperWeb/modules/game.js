@@ -1,17 +1,20 @@
 import {placePreloaded} from "/modules/helpRender.js"
 
-export function mineGen(fieldWidth, fieldHeight) {
+export function mineGen(fieldWidth, fieldHeight, mineCount) {
     // TODO: randomisation to ensure a specific number of mines
     const mineSeed = Math.floor(Date.now()/1000) // current time in seconds
     let seedIter = mineSeed
 
-    var game = []
-    for (let y = 0 ; y < fieldHeight ; y++) {
-        let row = []
-        for (let x = 0 ; x < fieldWidth; x++) {
-            row.push((seedIter = seedIter * 16807 % 2147483647) < (0.2*2147483646) ? 1 : 0); // PRNG sourced from https://gist.github.com/blixt/f17b47c62508be59987b
-        }
-        game.push(row)
+    let game = []
+    for (let _ = 0; _ < fieldHeight; _++) game.push(Array(fieldWidth).fill(0));
+
+    for (let _ = 0; _ < mineCount; _++) {
+        const randProb = (seedIter = seedIter * 16807 % 2147483647) / 2147483646;
+        const mineIndex = Math.round((fieldWidth*fieldHeight-1) * randProb)
+        const y = mineIndex % fieldWidth, x = Math.round(mineIndex / fieldHeight)
+        // console.log("indexes:", x, y);
+        if (game[y][x] == 0) game[y][x] = 1;
+        else _ -= 1
     }
 
     return [game, mineSeed];
@@ -42,6 +45,7 @@ function neighbour_operation(w, h, x, y, fun) {
 function cell_reveal(game, x, y) {
     if (game.mineLayout[y][x] == 1) { // if there's a mine, the cell state is now mine (3), otherwise open cell (2)
         game.fieldState[y][x] = 3
+        game.finished = true;
     }
     else { // the cell is safe
         game.fieldState[y][x] = 2 // mark it as an open cell
@@ -73,15 +77,19 @@ function actionResolve(game, action, x, y, timestamp) {
     // ^ note: the timestamp is the miliseconds relative to when the "context" was created (i.e. ms since document loaded (apparently))
     // since it's relative to a fixed landmark, in processing we can just subtract the timestamp of the first action.
 
-    if (action == 0 && game.fieldState[y][x] == 0) { // if left click for a reveal action, but only if the cell is an un-flagged closed cell. (importantly - the cell isnt flagged (note we disable opening of flagged cells))
+    if (game.finished) {
+        console.log("the game is finished")
+    }
+    else if (action == 0 && game.fieldState[y][x] == 0) { // if left click for a reveal action, but only if the cell is an un-flagged closed cell. (importantly - the cell isnt flagged (note we disable opening of flagged cells))
         actionRecord.successful = true;
         cell_reveal(game, x, y)
     }
     else if (action == 1 && (game.fieldState[y][x] == 1 || game.fieldState[y][x] == 0)) { // right click for a toggle flag
-        game.fieldState[y][x] = game.fieldState[y][x] == 1 ? 0 : 1; // toggle flag state of the cell.
         actionRecord.successful = true;
+        game.fieldState[y][x] = game.fieldState[y][x] == 1 ? 0 : 1; // toggle flag state of the cell.
     }
     else if (action == 2 && game.fieldState[y][x] == 2) { // if the action is a left+right click, and the cell is an open cell with a number..
+        actionRecord.successful = true;
         // first count the number of neighbouring flags
         let flaggedNeighbours = 0
 
@@ -97,7 +105,18 @@ function actionResolve(game, action, x, y, timestamp) {
             });
     }
 
-    game.actionRecords.push(actionRecord);
+    if (actionRecord.successful) game.actionRecords.push(actionRecord);
+
+    // WARN: copy+paste from render logic. todo: reduce duplication
+    let remainingEmptyCells = 0;
+    for (let y2 = 0 ; y2 < game.fieldHeight ; y2 += 1)
+        for (let x2 = 0 ; x2 < game.fieldWidth ; x2 += 1)
+            if (game.mineLayout[y2][x2] == 0 && game.fieldState[y2][x2] != 2)
+                remainingEmptyCells += 1;
+    console.log("remaining empty cells:", remainingEmptyCells)
+
+    if (remainingEmptyCells == 0) { game.finished = true; }
+
     renderGame(game);
 }
 
@@ -140,10 +159,12 @@ export function renderGame(game) {
 
     const totalMines = game.mineLayout.reduce((r1, r2) => {return r1.concat(r2)}).reduce((a, b) => {return a+b});
     const flaggedMines = game.fieldState.reduce((r1, r2) => {return r1.concat(r2)}).filter((a) => {return a == 1}).length;
-
     const minesRemaining = Math.max(totalMines-flaggedMines, 0);
 
-    const msElapsed = game.actionRecords.length != 0 ? Date.now() - game.playStart : 0;
+    let msElapsed = 0;
+    console.log(game.actionRecords)
+    if (game.finished) { msElapsed = game.actionRecords.at(-1).timestamp - game.actionRecords.at(0).timestamp }
+    else { msElapsed = game.actionRecords.length != 0 ? Date.now() - game.playStart : 0 }
     const secondsElapsed = Math.round(msElapsed/1000);
 
     // console.log("mines remaining:", minesRemaining);
@@ -244,5 +265,5 @@ export function timerHandler(e, game) {
     game.playStart = Date.now() // event timestamps are relative to context creation (in this case meaning page load), but we want to use epoch time. We store the epoch for the first ever event, as a reference point.
     // the only goal here is to be regularly re-rendering the game every second, to update the timer display.
     // HACK: maybe change to re-render timer only, instead of the whole board. as it is, it's wastefully re-rendering everything, but the performance impact probably wont be noticed at this scale.
-    setInterval(() => {renderGame(game)}, 1000);
+    setInterval(() => {if (!game.finished) {renderGame(game)}}, 1000);
 }
