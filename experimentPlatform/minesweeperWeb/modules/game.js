@@ -102,6 +102,23 @@ function cell_reveal(game, x, y) {
     }
 }
 
+const backend_endpoint = "http://localhost:3000/"
+function submit_playthrough(game) {
+    console.log("submitting playthrough")
+    const userID = "devID";
+    const timestamp = game.playStart;
+    const seed = game.mineSeed;
+    const actionRecords = game.actionRecords;
+
+    fetch(backend_endpoint + "postSolve/?userID=" + userID + "&timestamp=" + timestamp + "&seed=" + seed, {
+        method: "POST",
+        body: JSON.stringify(actionRecords),
+        headers: { "Content-type": "application/json; charset=UTF-8" }
+    })
+      .then((response) => console.log("got playthrough response of", response));
+      // .then((json) => console.log(json));
+}
+
 function actionResolve(game, action, x, y, timestamp) {
     console.log("got action", action);
     // TODO: different outcomes according to left click, right click, mine underneath, safe underneath, etc.
@@ -155,6 +172,7 @@ function actionResolve(game, action, x, y, timestamp) {
     console.log("remaining empty cells:", remainingEmptyCells)
 
     if (remainingEmptyCells == 0) { game.finished = true; }
+    if (game.finished) { submit_playthrough(game); }
 
     renderGame(game);
 }

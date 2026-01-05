@@ -21,6 +21,14 @@ const port = 3000
 app.use(express.text()) // tell the middleware to allow and parse Content-Type: text/plain // (mainly for testing purposes)
 app.use(express.json()) // tell the middleware to allow and parse Content-Type: application/json
 
+app.use(function (req, res, next) {
+    res.setHeader("Access-Control-Allow-Origin", "http://localhost:35517");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST");
+    res.setHeader("Access-Control-Allow-Headers", "X-Requested-With,content-type");
+
+    next();
+});
+
 app.get("/", (req, res) => {
     res.send("Hello World!!! you wanted:" + req.query.hithere)
 })
