@@ -3,8 +3,8 @@ import express from "express"
 
 // mongodb database setup // TODO: abstract mongoDB and express routing to different modules?
 
-// const dbUrl = "mongodb://localhost:27017";
-const dbUrl = "mongodb://localhost:27417";
+let dbUrl = "mongodb://localhost:27017";
+for (let i=0 ; i < process.argv.length ; i++) if (process.argv[i] == "--mongoEndpoint" && process.argv.length > i+1) {dbUrl = process.argv[i+1]; break;}
 const client = new MongoClient(dbUrl);
 
 client.connect();
@@ -22,7 +22,7 @@ app.use(express.text()) // tell the middleware to allow and parse Content-Type: 
 app.use(express.json()) // tell the middleware to allow and parse Content-Type: application/json
 
 app.use(function (req, res, next) {
-    res.setHeader("Access-Control-Allow-Origin", "http://localhost:35517");
+    res.setHeader("Access-Control-Allow-Origin", "*"); // WARN: change this to the deployment domain when you deploy.
     res.setHeader("Access-Control-Allow-Methods", "GET, POST");
     res.setHeader("Access-Control-Allow-Headers", "X-Requested-With,content-type");
 
