@@ -3,9 +3,27 @@
 <html>
 <head>
   <title>Minesweeper Experiment</title>
+  <link rel="stylesheet" href="/style.css"/>
 </head>
+
 <body>
   <script type="module" src="main.js"></script>
-  <canvas id = "gameView" width="335" height="442" oncontextmenu="return false"></canvas>
+  <div id="verticalAligner">
+    <div id="content">
+      <canvas id="gameView" width="335px" height="422px" oncontextmenu="return false"></canvas>
+
+      <div id="leaderboard">
+          leaderboard: <br/>
+        <!--
+        <div class="row">
+            <div class="userID">person</div>
+            <div class="time">1:12</div>
+            <div class="3bv">42</div>
+            <btn>attempt</div>
+        </div>
+        -->
+      </div>
+    </div>
+  </div>
 </body>
 </html>

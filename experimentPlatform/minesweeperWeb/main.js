@@ -1,5 +1,6 @@
 import {gameInit, renderGame, interactHandler} from "/modules/game.js"
 import {preloadURL} from "/modules/helpRender.js"
+import {leaderboard_refresh} from "/modules/leaderboard.js"
 
 const gameCanv = document.getElementById("gameView");
 const gameCtx = gameCanv.getContext("2d");
@@ -22,6 +23,8 @@ function sleep(milliseconds) {
  *
  * grid drawing is either: 0. a closed cell, 1. a closed flagged cell, 2. a numbered open cell with hint 0-9 (0 renders no number), 3. a mine (or explosion)
 */
+
+leaderboard_refresh();
 
 let gameInstance = gameInit(gameCtx, 9, 9, 10);
 

@@ -1,4 +1,5 @@
 import {placePreloaded} from "/modules/helpRender.js"
+import {submit_playthrough} from "/modules/apiWrapper.js"
 
 export function gameInit(ctx, fieldWidth, fieldHeight, mineCount) {
     // prepare the starting field.
@@ -102,23 +103,6 @@ function cell_reveal(game, x, y) {
     }
 }
 
-const backend_endpoint = "http://localhost:3000/"
-function submit_playthrough(game) {
-    console.log("submitting playthrough")
-    const userID = "devID";
-    const timestamp = game.playStart;
-    const seed = game.mineSeed;
-    const actionRecords = game.actionRecords;
-
-    fetch(backend_endpoint + "postSolve/?userID=" + userID + "&timestamp=" + timestamp + "&seed=" + seed, {
-        method: "POST",
-        body: JSON.stringify(actionRecords),
-        headers: { "Content-type": "application/json; charset=UTF-8" }
-    })
-      .then((response) => console.log("got playthrough response of", response));
-      // .then((json) => console.log(json));
-}
-
 function actionResolve(game, action, x, y, timestamp) {
     console.log("got action", action);
     // TODO: different outcomes according to left click, right click, mine underneath, safe underneath, etc.
@@ -219,7 +203,7 @@ export function renderGame(game) {
     const minesRemaining = Math.max(totalMines-flaggedMines, 0);
 
     let msElapsed = 0;
-    console.log(game.actionRecords)
+
     if (game.finished) { msElapsed = game.actionRecords.at(-1).timestamp - game.actionRecords.at(0).timestamp }
     else { msElapsed = game.actionRecords.length != 0 ? Date.now() - game.playStart : 0 }
     const secondsElapsed = Math.round(msElapsed/1000);
@@ -311,6 +295,7 @@ export function interactHandler(e, game) {
     if (e.type != "mousedown" || (!leftDown && !rightDown)) return;
 
     const [x, y] = pixelToCell(currentX, currentY);
+    console.log(currentX, currentY)
     console.log(x, y)
     console.log(e)
     console.log("leftDown?", leftDown, "rightDown?", rightDown);

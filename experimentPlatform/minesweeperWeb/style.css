@@ -1,4 +1,29 @@
 canvas {
-    border: 1px solid #d3d3d3;
     touch-action: none;
+}
+
+body {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    height: 100vh;
+}
+
+div #content {
+    margin: 0 auto;
+    width: 100vw;
+
+    display: flex;
+    justify-content: center;
+}
+
+div #leaderboard {
+    border: 1px solid #dd33dd;
+    overflow-y: scroll;
+    padding: 10px;
+}
+
+div .row * {
+float: left;
+margin-right: 10px;
 }
