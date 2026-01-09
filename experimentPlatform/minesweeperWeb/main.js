@@ -29,23 +29,25 @@ leaderboard_refresh();
 let gameInstance = gameInit(gameCtx, 9, 9, 10);
 
 // prepare necessary assets
-await preloadURL("./assets/background.png", "background");
-await preloadURL("./assets/closedCell.png", "closedCell"); // field ID 0
-await preloadURL("./assets/flaggedCell.png", "flaggedCell"); // field ID 1
-await preloadURL("./assets/hint0Cell.png", "hint0Cell"); // field ID 2
-await preloadURL("./assets/hint1Cell.png", "hint1Cell"); // field ID 2
-await preloadURL("./assets/hint2Cell.png", "hint2Cell"); // field ID 2
-await preloadURL("./assets/hint3Cell.png", "hint3Cell"); // field ID 2
-await preloadURL("./assets/hint4Cell.png", "hint4Cell"); // field ID 2
-await preloadURL("./assets/hint5Cell.png", "hint5Cell"); // field ID 2
-await preloadURL("./assets/hint6Cell.png", "hint6Cell"); // field ID 2
-await preloadURL("./assets/hint7Cell.png", "hint7Cell"); // field ID 2
-await preloadURL("./assets/hint8Cell.png", "hint8Cell"); // field ID 2
-await preloadURL("./assets/mineCell.png", "mineCell"); // field ID 3
-await preloadURL("./assets/edgeSegmentOn.png", "edgeSegmentOn");
-await preloadURL("./assets/edgeSegmentOff.png", "edgeSegmentOff");
-await preloadURL("./assets/centerSegmentOn.png", "centerSegmentOn");
-await preloadURL("./assets/centerSegmentOff.png", "centerSegmentOff");
+let assetPromises = []
+assetPromises.push(preloadURL("./assets/background.png", "background"));
+assetPromises.push(preloadURL("./assets/closedCell.png", "closedCell")); // field ID 0
+assetPromises.push(preloadURL("./assets/flaggedCell.png", "flaggedCell")); // field ID 1
+assetPromises.push(preloadURL("./assets/hint0Cell.png", "hint0Cell")); // field ID 2
+assetPromises.push(preloadURL("./assets/hint1Cell.png", "hint1Cell")); // field ID 2
+assetPromises.push(preloadURL("./assets/hint2Cell.png", "hint2Cell")); // field ID 2
+assetPromises.push(preloadURL("./assets/hint3Cell.png", "hint3Cell")); // field ID 2
+assetPromises.push(preloadURL("./assets/hint4Cell.png", "hint4Cell")); // field ID 2
+assetPromises.push(preloadURL("./assets/hint5Cell.png", "hint5Cell")); // field ID 2
+assetPromises.push(preloadURL("./assets/hint6Cell.png", "hint6Cell")); // field ID 2
+assetPromises.push(preloadURL("./assets/hint7Cell.png", "hint7Cell")); // field ID 2
+assetPromises.push(preloadURL("./assets/hint8Cell.png", "hint8Cell")); // field ID 2
+assetPromises.push(preloadURL("./assets/mineCell.png", "mineCell")); // field ID 3
+assetPromises.push(preloadURL("./assets/edgeSegmentOn.png", "edgeSegmentOn"));
+assetPromises.push(preloadURL("./assets/edgeSegmentOff.png", "edgeSegmentOff"));
+assetPromises.push(preloadURL("./assets/centerSegmentOn.png", "centerSegmentOn"));
+assetPromises.push(preloadURL("./assets/centerSegmentOff.png", "centerSegmentOff"));
+for (const promise of assetPromises) await promise;
 
 // render the first state of the game.
 renderGame(gameInstance);
