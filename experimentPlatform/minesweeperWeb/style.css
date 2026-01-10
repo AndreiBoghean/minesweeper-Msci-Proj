@@ -1,4 +1,4 @@
-canvas {
+canvas .gameView {
     touch-action: none;
 }
 
@@ -20,6 +20,7 @@ div #content {
 div #leaderboard {
     border: 1px solid #dd33dd;
     overflow-y: scroll;
+    height: 395px;
     padding: 10px;
 }
 

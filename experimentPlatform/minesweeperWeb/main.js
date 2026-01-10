@@ -1,9 +1,9 @@
-import {gameInit, renderGame, interactHandler} from "/modules/game.js"
+import {gameInit, renderGame} from "/modules/game.js"
 import {preloadURL} from "/modules/helpRender.js"
 import {leaderboard_refresh} from "/modules/leaderboard.js"
 
-const gameCanv = document.getElementById("gameView");
-const gameCtx = gameCanv.getContext("2d");
+// const gameCanv = document.getElementById("firstCanvas");
+// gameCanv.insertAdjacentElement("afterend", gameCanv2);
 
 function sleep(milliseconds) {
 	return new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -26,7 +26,7 @@ function sleep(milliseconds) {
 
 leaderboard_refresh();
 
-let gameInstance = gameInit(gameCtx, 9, 9, 10);
+let gameInstance = gameInit(9, 9, 10);
 
 // prepare necessary assets
 let assetPromises = []
@@ -47,17 +47,15 @@ assetPromises.push(preloadURL("./assets/edgeSegmentOn.png", "edgeSegmentOn"));
 assetPromises.push(preloadURL("./assets/edgeSegmentOff.png", "edgeSegmentOff"));
 assetPromises.push(preloadURL("./assets/centerSegmentOn.png", "centerSegmentOn"));
 assetPromises.push(preloadURL("./assets/centerSegmentOff.png", "centerSegmentOff"));
+assetPromises.push(preloadURL("/assets/smileIdle.png", "smileIdle"));
+assetPromises.push(preloadURL("/assets/smileBlink.png", "smileBlink"));
+assetPromises.push(preloadURL("/assets/sadIdle.png", "sadIdle"));
+assetPromises.push(preloadURL("/assets/sadBlink.png", "sadBlink"));
 for (const promise of assetPromises) await promise;
+
+// insert the canvas where we need it
+document.getElementById("content").prepend(gameInstance.ctx.canvas)
 
 // render the first state of the game.
 renderGame(gameInstance);
 // note - subsequent states are triggered by user actions, so there is no game loop. there is however a regular render loop every second that is independent of actions.
-
-// TODO: register user action listeners
-// HACK: interactHandler triggers a re-render, and timer rendering requires the timer handler be set up,
-// so the timer handler needs to be registered before the interact for the necessary data to exist on the first execution of the ineract handler.
-
-// gameCanv.addEventListener("mousedown", (e) => { return timerHandler(e, gameInstance) }, {once : true});
-gameCanv.addEventListener("mousedown", (e) => { return interactHandler(e, gameInstance) });
-gameCanv.addEventListener("mouseup"  , (e) => { return interactHandler(e, gameInstance) });
-// gameCanv.addEventListener('touchstart', interactHandler); // relic from touch support.. apprently touches issue both touchend and mouseup? doesnt make sense, but convientient.

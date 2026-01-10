@@ -1,7 +1,22 @@
 import {placePreloaded} from "/modules/helpRender.js"
 import {submit_playthrough} from "/modules/apiWrapper.js"
 
-export function gameInit(ctx, fieldWidth, fieldHeight, mineCount) {
+export function gameInit(fieldWidth, fieldHeight, mineCount) {
+     // prepare a canvas to keep our game instance
+    const gameCanv = document.createElement("canvas");
+    gameCanv.class = "gameView"
+    gameCanv.width = 335;
+    gameCanv.height = 422;
+    gameCanv.oncontextmenu = () => {return false;}
+
+    // HACK: interactHandler triggers a re-render, and timer rendering requires the timer handler be set up,
+    // so the timer handler needs to be registered before the interact for the necessary data to exist on the first execution of the ineract handler.
+
+    // gameCanv.addEventListener("mousedown", (e) => { return timerHandler(e, gameInstance) }, {once : true});
+    gameCanv.addEventListener("mousedown", (e) => { return interactHandler(e, gameInstance) });
+    gameCanv.addEventListener("mouseup"  , (e) => { return interactHandler(e, gameInstance) });
+    // gameCanv.addEventListener('touchstart', interactHandler); // relic from touch support.. apprently touches issue both touchend and mouseup? doesnt make sense, but convientient.
+
     // prepare the starting field.
     let fieldState = []
     for (let _ = 0; _ < fieldHeight ; _++) {
@@ -14,10 +29,10 @@ export function gameInit(ctx, fieldWidth, fieldHeight, mineCount) {
     let mineHints = hintGen(mineLayout);
 
     let gameInstance = {
-        ctx: ctx,
-        fieldState: fieldState, finished: false,
+        ctx: gameCanv.getContext("2d"),
+        fieldState: fieldState, finished: false, lost: false, restartPressed: false,
         mineSeed: mineSeed, mineLayout: mineLayout, mineHints: mineHints,
-        fieldWidth: fieldWidth, fieldHeight: fieldHeight,
+        fieldWidth: fieldWidth, fieldHeight: fieldHeight, mineCount: mineCount,
         actionRecords: [], playStart: 0
     }
 
@@ -31,8 +46,13 @@ export function gameInit(ctx, fieldWidth, fieldHeight, mineCount) {
     printer2d(mineHints)
     // */
 
-
     return gameInstance;
+}
+
+export function gameRestart(game) { // WARN: we "restart" a game by deleting the old one and replacing it with a new one. if any changes stylistic or otherwise are made to the original canvas without our knowledge, we will unknowingly overwrite them. issue out of scope :)
+    const newGame = gameInit(game.fieldWidth, game.fieldHeight, game.mineCount)
+    game.ctx.canvas.replaceWith(newGame.ctx.canvas);
+    return newGame;
 }
 
 export function mineGen(fieldWidth, fieldHeight, mineCount) {
@@ -81,6 +101,7 @@ function cell_reveal(game, x, y) {
     if (game.mineLayout[y][x] == 1) { // if there's a mine, the cell state is now mine (3), otherwise open cell (2)
         game.fieldState[y][x] = 3
         game.finished = true;
+        game.lost = true;
     }
     else { // the cell is safe
         game.fieldState[y][x] = 2 // mark it as an open cell
@@ -112,7 +133,20 @@ function actionResolve(game, action, x, y, timestamp) {
     // ^ note: the timestamp is the miliseconds relative to when the "context" was created (i.e. ms since document loaded (apparently))
     // since it's relative to a fixed landmark, in processing we can just subtract the timestamp of the first action.
 
-    if (game.finished) {
+    if (action == 3)
+    {
+        game.finished = true;
+        game.restartPressed = true;
+        actionRecord.successful = true;
+    }
+    else if (action == 4)
+    {
+        game.restartPressed = false;
+        const newGame = gameRestart(game);
+        renderGame(newGame);
+        actionRecord.successful = true;
+    }
+    else if (game.finished) { // game.finished check in the middle, meaning the if clauses below only trigger if the game isnt finished.
         console.log("the game is finished")
     }
     else if (action == 0 && game.fieldState[y][x] == 0) { // if left click for a reveal action, but only if the cell is an un-flagged closed cell. (importantly - the cell isnt flagged (note we disable opening of flagged cells))
@@ -139,8 +173,9 @@ function actionResolve(game, action, x, y, timestamp) {
                 if (game.fieldState[yAdj][xAdj] == 0) cell_reveal(game, xAdj, yAdj); // if the neighbour is hidden unflagged, then reveal.
             });
     }
+    else { console.log("unrecognised action for handling:", action) }
 
-    if (actionRecord.successful) {
+    if (actionRecord.successful) { // if the action was valid and carried out
         // if it's the first user action, sync the timer with it.
         if (game.actionRecords.length == 0) timerLoopHandler(game);
 
@@ -155,10 +190,12 @@ function actionResolve(game, action, x, y, timestamp) {
                 remainingEmptyCells += 1;
     console.log("remaining empty cells:", remainingEmptyCells)
 
-    if (remainingEmptyCells == 0) { game.finished = true; }
-    if (game.finished) { submit_playthrough(game); }
+    if (remainingEmptyCells == 0) { game.finished = true; game.lost = true; }
 
+    if (game.finished) { submit_playthrough(game); }
+    console.log("awawa1", game.restartPressed)
     renderGame(game);
+    console.log("awawa2", game.restartPressed)
 }
 
 
@@ -167,6 +204,7 @@ const gridStartX = 24, gridStartY = 110; // note: x:25, y:110 (with 0-based inde
 const gridSquareSize = 32; // the pixel dimensions of a cell for us right now is 32x32.
 
 export function renderGame(game) {
+    console.log("rendering");
     placePreloaded(game.ctx, "background", 0, 0);
 
     // grid rendering
@@ -204,7 +242,7 @@ export function renderGame(game) {
 
     let msElapsed = 0;
 
-    if (game.finished) { msElapsed = game.actionRecords.at(-1).timestamp - game.actionRecords.at(0).timestamp }
+    if (game.finished && game.actionRecords.length > 0) { msElapsed = game.actionRecords.at(-1).timestamp - game.actionRecords.at(0).timestamp }
     else { msElapsed = game.actionRecords.length != 0 ? Date.now() - game.playStart : 0 }
     const secondsElapsed = Math.round(msElapsed/1000);
 
@@ -262,6 +300,10 @@ export function renderGame(game) {
 
     render_segment(game.ctx,  34, 32, minesRemaining);
     render_segment(game.ctx, 223, 32, secondsElapsed);
+
+    // restart button rendering
+    console.log("lost", game.lost, "resed", game.restartPressed);
+    placePreloaded(game.ctx, (game.lost ? "sad" : "smile") + (game.restartPressed ? "Blink" : "Idle"), 141, 30);
 }
 
 function pixelToCell(x, y) {
@@ -270,36 +312,47 @@ function pixelToCell(x, y) {
     return [x, y]
 }
 
-let leftDown = false;
-let rightDown = false;
+let mainDown = false;
+let altDown = false;
 export function interactHandler(e, game) {
-    if (e.type == "mousedown") {
-        var currentX = e.offsetX;
-        var currentY = e.offsetY;
+    let justChanged = "none";
+    let currentX=0, currentY=0;
 
-        if (e.button == 0) leftDown = true;
-        if (e.button == 2) rightDown = true;
-    }
-    else if (e.type == "mouseup") { // we dont execute any actions on mouseup, so getting currentXY isnt necessary.
-        if (e.button == 0) leftDown = false;
-        if (e.button == 2) rightDown = false;
+    if (e.type == "mousedown" || e.type == "mouseup") {
+        currentX = e.offsetX;
+        currentY = e.offsetY;
+
+        if (e.button == 0) mainDown = e.type == "mousedown";
+        if (e.button == 2) altDown = e.type == "mousedown";
+        justChanged = (e.button == 0) ? "main" : "alt"
     }
     else if (e.type == "touchstart") {
-        let touch = e.touches[0]
-        var currentX = touch.offsetX;
-        var currentY = touch.offsetY;
+        const touch = e.touches[0]
+        currentX = touch.offsetX;
+        currentY = touch.offsetY;
+        justChanged = "main"
     }
     else { console.log("panic! we've been given a non-mouse non-touch event! how did this happen :("); }
 
-    // TODO: this assumes mouse.. touch wont support flagging right now.
-    if (e.type != "mousedown" || (!leftDown && !rightDown)) return;
+    // click detection on the reset button
+    if (justChanged == "main" && currentX >= 141 && currentX <= 192 && currentY >= 30 && currentY <= 81)
+    {
+        if (mainDown) actionResolve(game, 3, -1, -1, e.timeStamp); // action id 3 is restart button clicked
+        else actionResolve(game, 4, -1, -1, e.timeStamp); // action id 4 is restart button released
+        return;
+    }
+
+    // TODO: eventually support flagging via touch. for now, stop if not a mouse interaction.
+    if (e.type !=  "mousedown") return;
 
     const [x, y] = pixelToCell(currentX, currentY);
+
     console.log(currentX, currentY)
     console.log(x, y)
     console.log(e)
-    console.log("leftDown?", leftDown, "rightDown?", rightDown);
-    if (x >= 0 && x < game.fieldWidth && y >= 0 && y < game.fieldHeight) actionResolve(game, leftDown ? (rightDown ? 2 : 0) : 1, x, y, e.timeStamp); // HACK: if the leftDown conditional fails, then implicitly rightDown must be true, because the return above didnt trigger.
+    console.log("mainDown?", mainDown, "altDown?", altDown);
+
+    if (x >= 0 && x < game.fieldWidth && y >= 0 && y < game.fieldHeight) actionResolve(game, mainDown ? (altDown ? 2 : 0) : 1, x, y, e.timeStamp); // HACK: if the mainDown conditional fails, then implicitly altDown must be true, because the return above didnt trigger.
 }
 
 export function timerLoopHandler(game) {
