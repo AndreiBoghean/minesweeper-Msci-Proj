@@ -1,7 +1,7 @@
 // const backend_endpoint = "http://localhost:3000"
 // const backend_endpoint = "http://192.168.0.51:3081"
-const backend_endpoint = "http://192.168.0.224:3081"
-// const backend_endpoint = "https://msAPI.andreiboghean.com"
+// const backend_endpoint = "http://192.168.0.224:3081"
+const backend_endpoint = "https://msAPI.andreiboghean.com"
 
 
 // TODO: check for 200 status codes on api requests?
