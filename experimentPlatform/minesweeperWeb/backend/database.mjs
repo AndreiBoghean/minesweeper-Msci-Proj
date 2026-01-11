@@ -56,7 +56,7 @@ app.post("/postSolve", async (req, res) => {
     const timestamp = req.query.timestamp; // expected as unix time, but a different timestamp from the seed.
     const duration = req.query.duration; // expected as miliseconds.
     const seed = req.query.seed; // expected as unix time.
-    const threeBV = req.query.threebv;
+    const threebv = req.query.threebv;
     const body = req.body;
 
     const actionRecords = body; // TODO: parse action records to check for funny business and the likes (also todo: learn what's good practice)
@@ -66,12 +66,12 @@ app.post("/postSolve", async (req, res) => {
     console.log("got timestamp", timestamp);
     console.log("got duration", duration);
     console.log("got seed", seed);
-    console.log("got threeBV", threeBV);
+    console.log("got threebv", threebv);
     console.log("got actionRecords", actionRecords);
 
     res.send("post recieved");
 
-    const submissionRecord = {userAgent: userAgent, userID: userID, seed: seed, threeBV: threeBV, timestamp: timestamp, duration: duration, actionRecords: actionRecords}
+    const submissionRecord = {userAgent: userAgent, userID: userID, seed: seed, threebv: threebv, timestamp: timestamp, duration: duration, actionRecords: actionRecords}
     const result = await collection.insertOne(submissionRecord)
     console.log("inserted new submission", submissionRecord)
     console.log("obtained result", result)
@@ -98,11 +98,11 @@ app.get("/getSolve", async (req, res) => {
             console.log("using projection for core")
             break;
         case "regular":
-            projectFields = { _id: 0, userID: 1, timestamp: 1, seed: 1, actionRecords: 1, threeBV: 1, timestamp: 1, solveTime: 1 };
+            projectFields = { _id: 0, userID: 1, timestamp: 1, seed: 1, actionRecords: 1, threebv: 1, timestamp: 1, solveTime: 1 };
             console.log("using projection for regular")
             break;
         case "investigated":
-            projectFields = { _id: 0, userID: 1, timestamp: 1, seed: 1, actionRecords: 1, threeBV: 1, timestamp: 1, solveTime: 1, RAC: 1 };
+            projectFields = { _id: 0, userID: 1, timestamp: 1, seed: 1, actionRecords: 1, threebv: 1, timestamp: 1, solveTime: 1, RAC: 1 };
             console.log("using projection for investigated")
             break;
         default:
