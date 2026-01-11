@@ -42,7 +42,7 @@ app.get("/", (req, res) => {
 })
 
 app.get("/listSolves", async (req, res) => { // NOTE: no input validation should be needed here.
-    const projectFields = { _id: 0, userID: 1, timestamp: 1, seed: 1 };
+    const projectFields = { _id: 0, userID: 1, timestamp: 1, seed: 1, duration: 1, threebv: 1 };
     const result = await collection.find().project(projectFields).toArray();
     console.log("found existing solves", result);
 
@@ -54,8 +54,9 @@ app.post("/postSolve", async (req, res) => {
     const userAgent = req.get("User-Agent");
     const userID = req.query.userID; // expected as string.
     const timestamp = req.query.timestamp; // expected as unix time, but a different timestamp from the seed.
-    const seed = req.query.seed; // expected as unix time
-    // res.json({requestBody: req.body})  // <==== req.body will be a parsed JSON object
+    const duration = req.query.duration; // expected as miliseconds.
+    const seed = req.query.seed; // expected as unix time.
+    const threeBV = req.query.threebv;
     const body = req.body;
 
     const actionRecords = body; // TODO: parse action records to check for funny business and the likes (also todo: learn what's good practice)
@@ -63,20 +64,20 @@ app.post("/postSolve", async (req, res) => {
     console.log("got user agent", userAgent);
     console.log("got userID", userID);
     console.log("got timestamp", timestamp);
+    console.log("got duration", duration);
     console.log("got seed", seed);
+    console.log("got threeBV", threeBV);
     console.log("got actionRecords", actionRecords);
 
     res.send("post recieved");
 
-    const threeBV = 0; // TODO: calculate
-    const solveTime = 0; // TODO: calculate
-    const RAC = {}; // TODO: calculate
-
-    const submissionRecord = {userAgent: userAgent, userID: userID, seed: seed, threeBV: threeBV, timestamp: timestamp, solveTime: solveTime, actionRecords: actionRecords, RAC: RAC}
+    const submissionRecord = {userAgent: userAgent, userID: userID, seed: seed, threeBV: threeBV, timestamp: timestamp, duration: duration, actionRecords: actionRecords}
     const result = await collection.insertOne(submissionRecord)
     console.log("inserted new submission", submissionRecord)
     console.log("obtained result", result)
 })
+
+/* NOTE: gave up on making a client-side replay and analysis page for submissions, so there's no longer a need to query full solves.
 
 app.get("/getSolve", async (req, res) => {
     const userID = req.query.userID; // expected as string.
@@ -89,7 +90,8 @@ app.get("/getSolve", async (req, res) => {
 
     const primaryKey = {userID: userID, timestamp: timestamp, seed: seed}
 
-    let projectFields;
+    const projectFields = { _id: 0, userID: 1, timestamp: 1, seed: 1, duration: 1, threebv: 1 };
+
     switch (req.query.solveFormat) {
         case "core":
             projectFields = { _id: 0, userID: 1, timestamp: 1, seed: 1, actionRecords: 1 };
@@ -114,6 +116,7 @@ app.get("/getSolve", async (req, res) => {
 
     res.send(result);
 })
+*/
 
 app.listen(port, () => {
     console.log(`minesweeper database backend listening on port ${port}`)
