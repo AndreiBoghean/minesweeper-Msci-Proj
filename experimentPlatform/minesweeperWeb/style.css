@@ -17,14 +17,18 @@ div #content {
     justify-content: center;
 }
 
-div #leaderboard {
+#leaderboardWrap {
     border: 1px solid #dd33dd;
     overflow-y: scroll;
     height: 395px;
     padding: 10px;
 }
 
-div .row * {
-float: left;
-margin-right: 10px;
+#leaderboardWrap table {
+    table-layout: auto;
+    width: 100%;
+}
+
+#leaderboardWrap table td {
+    text-align: center;
 }
