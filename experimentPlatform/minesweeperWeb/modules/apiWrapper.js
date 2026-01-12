@@ -15,7 +15,8 @@ function neighbour_operation(w, h, x, y, fun) {
 
 export function submit_playthrough(game) {
     console.info("submitting playthrough")
-    const userID = "devID";
+    const userIDpriv = localStorage.userIDpub;
+    const userIDpub = localStorage.userIDpub;
     const timestamp = game.playStart;
     const seed = game.mineSeed;
     const actionRecords = game.actionRecords;
@@ -75,7 +76,7 @@ export function submit_playthrough(game) {
     // let threebv = (game.fieldWidth*game.fieldHeight) - (game.mineHints.reduce((r1, r2) => {return r1.concat(r2)}).filter(c => c == 0).length) - (neighboursEmpty.length) - (game.mineCount);
     console.log("calculated 3bv", threebv)
 
-    fetch(backend_endpoint + "/postSolve?userID=" + userID + "&timestamp=" + timestamp + "&duration=" + duration + "&seed=" + seed + "&threebv=" + threebv, {
+    fetch(backend_endpoint + "/postSolve?userIDpub=" + userIDpub + "&userIDpriv=" + userIDpriv + "&timestamp=" + timestamp + "&duration=" + duration + "&seed=" + seed + "&threebv=" + threebv, {
         method: "POST",
         body: JSON.stringify(actionRecords),
         headers: { "Content-type": "application/json; charset=UTF-8" }

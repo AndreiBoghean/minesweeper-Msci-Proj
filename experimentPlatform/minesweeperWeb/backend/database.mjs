@@ -42,7 +42,7 @@ app.get("/", (req, res) => {
 })
 
 app.get("/listSolves", async (req, res) => { // NOTE: no input validation should be needed here.
-    const projectFields = { _id: 0, userID: 1, timestamp: 1, seed: 1, duration: 1, threebv: 1 };
+    const projectFields = { _id: 0, userIDpub: 1, timestamp: 1, seed: 1, duration: 1, threebv: 1 };
     const result = await collection.find().project(projectFields).toArray();
     console.log("found existing solves", result);
 
@@ -52,7 +52,8 @@ app.get("/listSolves", async (req, res) => { // NOTE: no input validation should
 app.post("/postSolve", async (req, res) => {
     // assumes a well-formed request... TODO: input validation
     const userAgent = req.get("User-Agent");
-    const userID = req.query.userID; // expected as string.
+    const userIDpub = req.query.userIDpub; // expected as string.
+    const userIDpriv = req.query.userIDpriv; // expected as string.
     const timestamp = req.query.timestamp; // expected as unix time, but a different timestamp from the seed.
     const duration = req.query.duration; // expected as miliseconds.
     const seed = req.query.seed; // expected as unix time.
@@ -62,7 +63,8 @@ app.post("/postSolve", async (req, res) => {
     const actionRecords = body; // TODO: parse action records to check for funny business and the likes (also todo: learn what's good practice)
 
     console.log("got user agent", userAgent);
-    console.log("got userID", userID);
+    console.log("got userIDpub", userIDpub);
+    console.log("got userIDpriv", userIDpriv);
     console.log("got timestamp", timestamp);
     console.log("got duration", duration);
     console.log("got seed", seed);
@@ -71,7 +73,7 @@ app.post("/postSolve", async (req, res) => {
 
     res.send("post recieved");
 
-    const submissionRecord = {userAgent: userAgent, userID: userID, seed: seed, threebv: threebv, timestamp: timestamp, duration: duration, actionRecords: actionRecords}
+    const submissionRecord = {userAgent: userAgent, userIDpub: userIDpub, userIDpriv: userIDpriv, seed: seed, threebv: threebv, timestamp: timestamp, duration: duration, actionRecords: actionRecords}
     const result = await collection.insertOne(submissionRecord)
     console.log("inserted new submission", submissionRecord)
     console.log("obtained result", result)

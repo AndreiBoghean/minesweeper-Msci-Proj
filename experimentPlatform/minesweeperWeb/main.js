@@ -24,14 +24,7 @@ function sleep(milliseconds) {
  * grid drawing is either: 0. a closed cell, 1. a closed flagged cell, 2. a numbered open cell with hint 0-9 (0 renders no number), 3. a mine (or explosion)
 */
 
-leaderboard_refresh();
-
-const urlParams = new URLSearchParams(window.location.search);
-const seed = parseInt(urlParams.get("seed"))
-console.log("seed:", seed);
-let gameInstance = gameInit(9, 9, 10, isNaN(seed) ? undefined : seed);
-
-// prepare necessary assets
+// start loading necessary assets asynchronously
 let assetPromises = []
 assetPromises.push(preloadURL("./assets/background.png", "background"));
 assetPromises.push(preloadURL("./assets/closedCell.png", "closedCell")); // field ID 0
@@ -54,6 +47,23 @@ assetPromises.push(preloadURL("/assets/smileIdle.png", "smileIdle"));
 assetPromises.push(preloadURL("/assets/smileBlink.png", "smileBlink"));
 assetPromises.push(preloadURL("/assets/sadIdle.png", "sadIdle"));
 assetPromises.push(preloadURL("/assets/sadBlink.png", "sadBlink"));
+
+// pull leaderboard
+leaderboard_refresh();
+
+// check for a specified seed and load if present
+const urlParams = new URLSearchParams(window.location.search);
+const seed = parseInt(urlParams.get("seed"))
+console.log("seed:", seed);
+
+// check for an existing user ID or create one on the assumption it's a new user
+if (!localStorage.hasOwnProperty("userIDpriv")) localStorage.userIDpriv = Date.now() * 10 * Math.random(); // assumes we'll never have more than 10 people "signing up" per milisecond. if this somehow causes problems then I quit (maybe I should charge for sign ups?)
+if (!localStorage.hasOwnProperty("userIDpub")) localStorage.userIDpub = Math.round(localStorage.userIDpriv).toString().slice(0, 5);
+
+// setup fresh game
+let gameInstance = gameInit(9, 9, 10, isNaN(seed) ? undefined : seed);
+
+// check and wait for unfinised assets
 for (const promise of assetPromises) await promise;
 
 // insert the canvas where we need it
