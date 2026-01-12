@@ -26,7 +26,10 @@ function sleep(milliseconds) {
 
 leaderboard_refresh();
 
-let gameInstance = gameInit(9, 9, 10);
+const urlParams = new URLSearchParams(window.location.search);
+const seed = parseInt(urlParams.get("seed"))
+console.log("seed:", seed);
+let gameInstance = gameInit(9, 9, 10, isNaN(seed) ? undefined : seed);
 
 // prepare necessary assets
 let assetPromises = []

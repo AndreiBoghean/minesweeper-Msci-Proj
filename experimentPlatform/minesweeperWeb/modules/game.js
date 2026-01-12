@@ -1,7 +1,7 @@
 import {placePreloaded} from "/modules/helpRender.js"
 import {submit_playthrough} from "/modules/apiWrapper.js"
 
-export function gameInit(fieldWidth, fieldHeight, mineCount) {
+export function gameInit(fieldWidth, fieldHeight, mineCount, seed=undefined) {
      // prepare a canvas to keep our game instance
     const gameCanv = document.createElement("canvas");
     gameCanv.class = "gameView"
@@ -24,7 +24,7 @@ export function gameInit(fieldWidth, fieldHeight, mineCount) {
     }
 
     // randomly generate mine placement
-    let [mineLayout, mineSeed] = mineGen(fieldWidth, fieldHeight, mineCount);
+    let [mineLayout, mineSeed] = mineGen(fieldWidth, fieldHeight, mineCount, seed);
     // count hints from mine placement
     let mineHints = hintGen(mineLayout);
 
@@ -36,7 +36,7 @@ export function gameInit(fieldWidth, fieldHeight, mineCount) {
         actionRecords: [], playStart: 0
     }
 
-    /*
+    // /*
     function printer2d(thing) { for (const row of thing) {console.log(row)}}
     console.log("intial field state:");
     printer2d(fieldState)
@@ -55,9 +55,9 @@ export function gameRestart(game) { // WARN: we "restart" a game by deleting the
     return newGame;
 }
 
-export function mineGen(fieldWidth, fieldHeight, mineCount) {
+export function mineGen(fieldWidth, fieldHeight, mineCount, mineSeed=undefined) {
     // TODO: randomisation to ensure a specific number of mines
-    const mineSeed = Math.floor(Date.now()/1000) // current time in seconds
+    if (mineSeed == undefined) mineSeed = Math.floor(Date.now()/1000) // current time in seconds
     let seedIter = mineSeed
 
     let game = []
