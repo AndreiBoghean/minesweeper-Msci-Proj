@@ -75,6 +75,14 @@ app.post("/postSolve", async (req, res) => {
 
     res.send("post recieved");
 
+
+    const primaryKey = {userIDpriv: userIDpriv, timestamp: timestamp, seed: seed}
+    const presenceResult = await collection.findOne(primaryKey);
+    if (presenceResult != null) {
+        console.warn("submission already present:", presenceResult)
+        return;
+    }
+
     const submissionRecord = {
         userAgent: userAgent, userIDpub: userIDpub, userIDpriv: userIDpriv,
         seed: seed, threebv: threebv,
