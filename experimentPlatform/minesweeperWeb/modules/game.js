@@ -190,7 +190,7 @@ function actionResolve(game, action, x, y, timestamp) {
                 remainingEmptyCells += 1;
     console.log("remaining empty cells:", remainingEmptyCells)
 
-    if (remainingEmptyCells == 0) { game.finished = true; game.lost = true; }
+    if (remainingEmptyCells == 0) { game.finished = true; }
 
     if (game.finished) { submit_playthrough(game); }
     console.log("awawa1", game.restartPressed)
