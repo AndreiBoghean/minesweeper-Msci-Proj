@@ -36,6 +36,8 @@ export async function leaderboard_refresh() {
 
     for (const entry of leaderboardEntries) {
         console.log(entry)
+        if (!entry.successful) continue;
+
         const userID = entry.userIDpub
         const threebv = entry.threebv
         const duration = parseInt(entry.duration)/1000 + "s"

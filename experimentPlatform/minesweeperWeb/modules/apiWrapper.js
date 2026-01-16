@@ -3,7 +3,6 @@
 // const backend_endpoint = "http://192.168.0.224:3081"
 const backend_endpoint = "https://msAPI.andreiboghean.com"
 
-
 // TODO: check for 200 status codes on api requests?
 
 // HACK: matrix helper function, duplicated in game.js
@@ -76,7 +75,8 @@ export function submit_playthrough(game) {
     // let threebv = (game.fieldWidth*game.fieldHeight) - (game.mineHints.reduce((r1, r2) => {return r1.concat(r2)}).filter(c => c == 0).length) - (neighboursEmpty.length) - (game.mineCount);
     console.log("calculated 3bv", threebv)
 
-    fetch(backend_endpoint + "/postSolve?userIDpub=" + userIDpub + "&userIDpriv=" + userIDpriv + "&timestamp=" + timestamp + "&duration=" + duration + "&seed=" + seed + "&threebv=" + threebv, {
+    const constructed_url = backend_endpoint + "/postSolve?userIDpub=" + userIDpub + "&userIDpriv=" + userIDpriv + "&timestamp=" + timestamp + "&duration=" + duration + "&successful=" + (game.finished && !game.lost) + "&seed=" + seed + "&threebv=" + threebv
+    fetch(constructed_url, {
         method: "POST",
         body: JSON.stringify(actionRecords),
         headers: { "Content-type": "application/json; charset=UTF-8" }

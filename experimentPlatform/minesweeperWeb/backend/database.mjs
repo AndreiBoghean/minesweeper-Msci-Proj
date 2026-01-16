@@ -42,7 +42,7 @@ app.get("/", (req, res) => {
 })
 
 app.get("/listSolves", async (req, res) => { // NOTE: no input validation should be needed here.
-    const projectFields = { _id: 0, userIDpub: 1, timestamp: 1, seed: 1, duration: 1, threebv: 1 };
+    const projectFields = { _id: 0, userIDpub: 1, timestamp: 1, seed: 1, duration: 1, successful: 1, threebv: 1 };
     const result = await collection.find().project(projectFields).toArray();
     console.log("found existing solves", result);
 
@@ -56,6 +56,7 @@ app.post("/postSolve", async (req, res) => {
     const userIDpriv = req.query.userIDpriv; // expected as string.
     const timestamp = req.query.timestamp; // expected as unix time, but a different timestamp from the seed.
     const duration = req.query.duration; // expected as miliseconds.
+    const successful = "true" == req.query.successful; // expected as a boolean either "true" or "false"
     const seed = req.query.seed; // expected as unix time.
     const threebv = req.query.threebv;
     const body = req.body;
@@ -67,13 +68,17 @@ app.post("/postSolve", async (req, res) => {
     console.log("got userIDpriv", userIDpriv);
     console.log("got timestamp", timestamp);
     console.log("got duration", duration);
+    console.log("got successful", successful);
     console.log("got seed", seed);
     console.log("got threebv", threebv);
     console.log("got actionRecords", actionRecords);
 
     res.send("post recieved");
 
-    const submissionRecord = {userAgent: userAgent, userIDpub: userIDpub, userIDpriv: userIDpriv, seed: seed, threebv: threebv, timestamp: timestamp, duration: duration, actionRecords: actionRecords}
+    const submissionRecord = {
+        userAgent: userAgent, userIDpub: userIDpub, userIDpriv: userIDpriv,
+        seed: seed, threebv: threebv,
+        timestamp: timestamp, duration: duration, successful: successful, actionRecords: actionRecords}
     const result = await collection.insertOne(submissionRecord)
     console.log("inserted new submission", submissionRecord)
     console.log("obtained result", result)
