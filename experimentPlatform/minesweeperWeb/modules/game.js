@@ -4,7 +4,7 @@ import {submit_playthrough} from "/modules/apiWrapper.js"
 export function gameInit(fieldWidth, fieldHeight, mineCount, seed=undefined) {
      // prepare a canvas to keep our game instance
     const gameCanv = document.createElement("canvas");
-    gameCanv.class = "gameView"
+    gameCanv.classList.add("gameView");
     gameCanv.width = 335;
     gameCanv.height = 422;
     gameCanv.oncontextmenu = () => {return false;}

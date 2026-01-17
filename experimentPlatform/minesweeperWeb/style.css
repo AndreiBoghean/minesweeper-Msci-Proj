@@ -1,4 +1,4 @@
-canvas .gameView {
+canvas.gameView {
     touch-action: none;
 }
 
