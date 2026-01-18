@@ -7,12 +7,12 @@ export function gameInit(fieldWidth, fieldHeight, mineCount, seed=undefined) {
     gameCanv.classList.add("gameView");
     gameCanv.width = 335;
     gameCanv.height = 422;
-    gameCanv.oncontextmenu = () => {return false;}
 
     // HACK: interactHandler triggers a re-render, and timer rendering requires the timer handler be set up,
     // so the timer handler needs to be registered before the interact for the necessary data to exist on the first execution of the ineract handler.
 
     // gameCanv.addEventListener("mousedown", (e) => { return timerHandler(e, gameInstance) }, {once : true});
+    gameCanv.oncontextmenu = (e) => { return interactHandler(e, gameInstance); }
     gameCanv.addEventListener("mousedown", (e) => { return interactHandler(e, gameInstance) });
     gameCanv.addEventListener("mouseup"  , (e) => { return interactHandler(e, gameInstance) });
     // gameCanv.addEventListener('touchstart', interactHandler); // relic from touch support.. apprently touches issue both touchend and mouseup? doesnt make sense, but convientient.
@@ -302,7 +302,6 @@ export function renderGame(game) {
     render_segment(game.ctx, 223, 32, secondsElapsed);
 
     // restart button rendering
-    console.log("lost", game.lost, "resed", game.restartPressed);
     placePreloaded(game.ctx, (game.lost ? "sad" : "smile") + (game.restartPressed ? "Blink" : "Idle"), 141, 30);
 }
 
@@ -332,6 +331,11 @@ export function interactHandler(e, game) {
         currentY = touch.offsetY;
         justChanged = "main"
     }
+    else if (e.type == "contextmenu") {
+        currentX = e.offsetX;
+        currentY = e.offsetY;
+        justChanged = "context"
+    }
     else { console.log("panic! we've been given a non-mouse non-touch event! how did this happen :("); }
 
     // click detection on the reset button
@@ -342,17 +346,20 @@ export function interactHandler(e, game) {
         return;
     }
 
-    // TODO: eventually support flagging via touch. for now, stop if not a mouse interaction.
-    if (e.type !=  "mousedown") return;
-
     const [x, y] = pixelToCell(currentX, currentY);
 
     console.log(currentX, currentY)
     console.log(x, y)
-    console.log(e)
     console.log("mainDown?", mainDown, "altDown?", altDown);
 
-    if (x >= 0 && x < game.fieldWidth && y >= 0 && y < game.fieldHeight) actionResolve(game, mainDown ? (altDown ? 2 : 0) : 1, x, y, e.timeStamp); // HACK: if the mainDown conditional fails, then implicitly altDown must be true, because the return above didnt trigger.
+    if (!(x >= 0 && x < game.fieldWidth && y >= 0 && y < game.fieldHeight)) return;
+
+    if ((mainDown || altDown) && (justChanged == "main" || justChanged == "alt")) actionResolve(game, mainDown ? (altDown ? 2 : 0) : 1, x, y, e.timeStamp); // HACK: if the mainDown conditional fails, then implicitly altDown must be true since mainDown || altDown was true;
+    else if (justChanged == "context") {
+        actionResolve(game, 1, x, y, e.timeStamp);
+        return false; // need to return false so the default context menu doesnt show up
+    }
+
 }
 
 export function timerLoopHandler(game) {
