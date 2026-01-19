@@ -1,20 +1,51 @@
-canvas.gameView {
-    touch-action: none;
-}
-
 body {
     margin: 0;
     display: flex;
     align-items: center;
-    height: 100vh;
 }
 
-div #content {
-    margin: 0 auto;
-    width: 100vw;
+*  { font-family: "Jersey 10" }
+h1 { font-size: 28px; }
+p { font-size: 24px; line-height: 1.1; }
+h1, h2, p { margin: 0; }
+h1 {color: blue;}
+h2 {color: red;}
 
+
+div#introductionScript {
+    /* background-color: yellow; */
+}
+
+div#debriefingScript {
+    /* background-color: cyan; */
+}
+
+div#disclaimerScript {
+    /* background-color: red; */
+}
+
+div.script {
+    width: 40vw;
+    margin-top: 20px;
+    margin-bottom: 20px;
+}
+
+div#content {
+    width: 100vw;
     display: flex;
+}
+
+div.centerMe {
+    margin-left: auto;
+    margin-right: auto;
     justify-content: center;
+}
+
+
+
+
+canvas.gameView {
+    touch-action: none;
 }
 
 #leaderboardWrap {

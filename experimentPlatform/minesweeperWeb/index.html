@@ -5,15 +5,70 @@
   <title>Minesweeper Experiment</title>
   <link rel="stylesheet" href="/style.css"/>
   <link rel="icon" type="image/x-icon" href="/assets/icon.ico">
+
+  <!-- pixel-y fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Jersey+10&display=swap" rel="stylesheet">
 </head>
 
 <body>
   <script type="module" src="main.js"></script>
 
   <div id="verticalAligner">
-    <div id="content">
-        <div id="leaderboardWrap"> </div>
-    </div>
+      <div id="debriefingScript" class="script centerMe">
+          <h1>Experiment Debriefing</h1>
+          <p>
+          hi I'm stealing ur gameplay and analising it to find out how you play. <br/>
+          <br/>
+          Specifically, we're interested in the "types" of moves you make, based on the size of the information necessary to make such moves. <br/>
+          In theory, the goal is to investigate how techniques (namely relational arc consistency) used by Constraint Programming solvers can be used to identify and categorise difficult portions of a minesweeper field, and subsequently help to understand the skill composition of a player through looking at how
+          players approach the aforemoentioned regions of difficulty. <br/>
+          <br/>
+          In practice, we plan to investigate the frequency of moves used and the typical time cost for a player to notice a move, and compare this data across players of different skill and different completion times, to make guesses about their abilities.
+          <br/>
+          questions? contact Andrei Boghean, the student responsible, at <a href="mailto://2645295b@student.gla.ac.uk">2645295b@student.gla.ac.uk</a>
+          </p>
+      </div>
+
+      <div id="content" class="centerMe">
+          <div id="leaderboardWrap"> </div>
+      </div>
+
+      <div id="introductionScript" class="script centerMe">
+          <h1>Minesweeper Instructions and Controls</h1>
+          <h2>Rules:</h2>
+          <p>
+          In Minesweeper, the primary goal is to uncover all the safe cells, while not uncovering any mines in the process. <br/>
+            Upon uncovering a cell, the cell reveals the number of mines within the 8 neighbouring cells around it. <br/>
+            This information can be used to deduce additional safe cells, and ultimately complete the field. <br/>
+            Uncovering a mine of course looses the game and stops the timer. <br/>
+            <br/>
+            Cells suspected to contain a mine can be flagged, and A cell whose flagged neighbours equal its number of neighbouring mines will allow you to "chord" it, revealing all neighbouring un-flagged cells in one action. <br/>
+            additionally, any cells you discover which have a hint of 0, i.e. have no neighbouring mines, will have their neighbours automatically uncovered. <br/>
+          </p>
+
+          <br/>
+          <h2>Controls:</h2>
+          <p style="line-height: 1.5">
+          <strong>Left-click</strong> or <strong>tap</strong> a closed cell to <i>open</i> the cell. <br/>
+          <strong>Right-click</strong> or <strong>long-press</strong> a closed cell to <i>flag</i> the cell. <br/>
+          <strong>Left-click + right-click</strong> a numbered cell to carry out a <i>chord</i> (NO MOBILE EQUIVALENT). <br/>
+          <strong>Click</strong> the smiley face to <i>restart</i> with a new, random, game. <br/>
+          <!-- &nbsp; - (Note: chording on a cell will automatically open all non-flagged neighbours, as long as the cell has flagged neighbours coresponding to the number indicated on the cell.) <br/> -->
+          </p>
+      </div>
+
+      <div id="disclaimerScript" class="script centerMe">
+          <h1>Experiment Privacy Disclaimers</h1>
+          <p>
+          this experiment looks at the following information, for the following purposes: <br/>
+          - taking your playthrough data (including type of move made, on what board cell, at what time) : to analise using algorithms being researched as part of the goal to understand how player abilities vary with skill <br/>
+          - a unique private playerID generated from the time you open the website, and a second public playerID which you can arbitrarily set. these IDs are attached to your browser via local storage, and is intended only to group playthroughs by the same player, not for personal identification. <br/>
+          - the useragent string your browser reports, as an indicator of whether you're playing on desktop or mobile <br/>
+          </p>
+      </div>
   </div>
 
 </body>
