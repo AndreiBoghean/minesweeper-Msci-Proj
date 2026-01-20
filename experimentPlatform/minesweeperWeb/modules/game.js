@@ -193,9 +193,7 @@ function actionResolve(game, action, x, y, timestamp) {
     if (remainingEmptyCells == 0) { game.finished = true; }
 
     if (game.finished) { submit_playthrough(game); }
-    console.log("awawa1", game.restartPressed)
     renderGame(game);
-    console.log("awawa2", game.restartPressed)
 }
 
 
@@ -348,17 +346,17 @@ export function interactHandler(e, game) {
 
     const [x, y] = pixelToCell(currentX, currentY);
 
-    console.log(currentX, currentY)
-    console.log(x, y)
+    console.log("translated", currentX, currentY, "to", x, y);
     console.log("mainDown?", mainDown, "altDown?", altDown);
 
     if (!(x >= 0 && x < game.fieldWidth && y >= 0 && y < game.fieldHeight)) return;
 
     if ((mainDown || altDown) && (justChanged == "main" || justChanged == "alt")) actionResolve(game, mainDown ? (altDown ? 2 : 0) : 1, x, y, e.timeStamp); // HACK: if the mainDown conditional fails, then implicitly altDown must be true since mainDown || altDown was true;
-    else if (justChanged == "context") {
+    else if (justChanged == "context" && !altDown) {
         actionResolve(game, 1, x, y, e.timeStamp);
-        return false; // need to return false so the default context menu doesnt show up
     }
+
+    return false; // need to return false so the default context menu doesnt show up
 
 }
 
