@@ -8,14 +8,16 @@ export async function leaderboard_refresh() {
     lbWrap.innerHTML = "" // empty children
 
     const usernameSet = document.createElement("button");
-    usernameSet.innerHTML = "set username"
+    usernameSet.innerHTML = "set<br/>username"
     usernameSet.style = "float: right;"
-    usernameSet.onclick = () => { localStorage.userIDpub = prompt("test") || localStorage.userIDpub; leaderboard_refresh(); }
+    usernameSet.onclick = () => { localStorage.userIDpub = prompt("set username?") || localStorage.userIDpub; leaderboard_refresh(); }
     lbWrap.appendChild(usernameSet)
 
-    lbWrap.appendChild(document.createTextNode("your username:"))
-    lbWrap.appendChild(document.createElement("br"))
-    lbWrap.appendChild(document.createTextNode(localStorage.userIDpub))
+    const p = document.createElement("p");
+    p.appendChild(document.createTextNode("your username:"))
+    p.appendChild(document.createElement("br"))
+    p.appendChild(document.createTextNode(localStorage.userIDpub))
+    lbWrap.appendChild(p)
 
     const lbTable = document.createElement("table");
     lbWrap.appendChild(lbTable);

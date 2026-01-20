@@ -5,11 +5,14 @@ body {
 }
 
 *  { font-family: "Jersey 10" }
-h1 { font-size: 28px; }
-p { font-size: 24px; line-height: 1.1; }
-h1, h2, p { margin: 0; }
-h1 {color: blue;}
-h2 {color: red;}
+h1 { font-size: 34px; }
+h2 { font-size: 26px; }
+h3 { font-size: 23px; }
+.script p { font-size: 22px; line-height: 1.1; }
+h1, h2, h3, p { margin: 0; }
+h1 {color: black;}
+h2 {color: blue;}
+h3 {color: red;}
 
 
 div#introductionScript {
@@ -25,7 +28,8 @@ div#disclaimerScript {
 }
 
 div.script {
-    width: 40vw;
+    /* note: we want 720px at most, and 420px at least */
+    width: max(min(100vw, 720px), 400px);
     margin-top: 20px;
     margin-bottom: 20px;
 }
@@ -33,9 +37,10 @@ div.script {
 div#content {
     width: 100vw;
     display: flex;
+    flex-wrap: wrap;
 }
 
-div.centerMe {
+.centerMe {
     margin-left: auto;
     margin-right: auto;
     justify-content: center;
@@ -48,11 +53,17 @@ canvas.gameView {
     touch-action: none;
 }
 
+#leaderboardWrap * {
+    text-align: center;
+}
+
 #leaderboardWrap {
-    border: 1px solid #dd33dd;
     overflow-y: scroll;
+    flex-shrink: 0;
     height: 395px;
     padding: 10px;
+
+    border: 6px solid;
 }
 
 #leaderboardWrap table {
@@ -60,6 +71,22 @@ canvas.gameView {
     width: 100%;
 }
 
-#leaderboardWrap table td {
+#leaderboardWrap table tr td {
     text-align: center;
+
+    border: 2px solid;
+}
+
+
+/* the classic minesweeper protrusion style */
+#leaderboardWrap,
+button {
+    background-color: #c0c0c0;
+    border-color: #FFFFFF #808080 #808080 #FFFFFF;
+}
+
+/* the classic minesweeper recessed style */
+#leaderboardWrap table tr td {
+    background-color: #c0c0c0;
+    border-color: #808080 #FFFFFF #FFFFFF #808080;
 }
