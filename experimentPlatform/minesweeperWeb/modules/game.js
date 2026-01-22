@@ -110,9 +110,9 @@ export function gameInit(fieldWidth, fieldHeight, mineCount, seed=undefined) {
 }
 
 export async function gameRestart(game) { // WARN: we "restart" a game by deleting the old one and replacing it with a new one. if any changes stylistic or otherwise are made to the original canvas without our knowledge, we will unknowingly overwrite them. issue out of scope :)
-    let seed = get_seed();
+    let seed = await get_seed();
     seed = parseInt(seed); // HACK: get_seed sometimes returns "random" indicating we should use a random seed. parseInt for a string yields NaN, which gets caught by the isNaN check below.
-    console.log("seed:", seed);
+    console.log("gameRestart seed:", seed);
 
     const newGame = gameInit(game.fieldWidth, game.fieldHeight, game.mineCount, isNaN(seed) ? undefined : seed)
     game.ctx.canvas.replaceWith(newGame.ctx.canvas);
