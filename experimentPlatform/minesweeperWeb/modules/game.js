@@ -1,5 +1,6 @@
 import {placePreloaded} from "/modules/helpRender.js"
 import {submit_playthrough} from "/modules/apiWrapper.js"
+import {leaderboard_refresh} from "/modules/leaderboard.js"
 
 export function gameInit(fieldWidth, fieldHeight, mineCount, seed=undefined) {
      // prepare a canvas to keep our game instance
@@ -55,6 +56,22 @@ export function gameRestart(game) { // WARN: we "restart" a game by deleting the
     return newGame;
 }
 
+function finishGame(game, lost) {
+    if (game.finished) return; // HACK:: on each input process, I have a check for whether the game is lost, which triggers finishGame. since actionResolve is overloaded and I cba refactoring, we make sure re-submits dont happen in here.
+
+    game.finished = true;
+    game.lost = lost;
+
+    let promis = submit_playthrough(game);
+    promis.then((temp) => {console.log("TEMP:", temp); leaderboard_refresh()})
+    // if (game.lost) return;
+
+    // const duration = parseInt(game.actionRecords.length > 1 ? (game.actionRecords.at(-1).timestamp - game.actionRecords.at(0).timestamp) : 0)/1000 + "s"
+    // if (duration == "0s") return;
+
+    // leaderboard_insert_entry(localStorage.userIDpub, threebv, duration, seed)
+}
+
 export function mineGen(fieldWidth, fieldHeight, mineCount, mineSeed=undefined) {
     // TODO: randomisation to ensure a specific number of mines
     if (mineSeed == undefined) mineSeed = Math.floor(Date.now()/1000) // current time in seconds
@@ -100,8 +117,7 @@ function neighbour_operation(w, h, x, y, fun) {
 function cell_reveal(game, x, y) {
     if (game.mineLayout[y][x] == 1) { // if there's a mine, the cell state is now mine (3), otherwise open cell (2)
         game.fieldState[y][x] = 3
-        game.finished = true;
-        game.lost = true;
+        finishGame(game, true);
     }
     else { // the cell is safe
         game.fieldState[y][x] = 2 // mark it as an open cell
@@ -135,7 +151,7 @@ function actionResolve(game, action, x, y, timestamp) {
 
     if (action == 3)
     {
-        game.finished = true;
+        finishGame(game, false); // note: we dont set "lost" to true, because "lost" actually means "hit a mine" and the variable name isnt indicative.
         game.restartPressed = true;
         actionRecord.successful = true;
     }
@@ -190,9 +206,7 @@ function actionResolve(game, action, x, y, timestamp) {
                 remainingEmptyCells += 1;
     console.log("remaining empty cells:", remainingEmptyCells)
 
-    if (remainingEmptyCells == 0) { game.finished = true; }
-
-    if (game.finished) { submit_playthrough(game); }
+    if (remainingEmptyCells == 0) { finishGame(game, false); }
     renderGame(game);
 }
 
@@ -202,7 +216,7 @@ const gridStartX = 24, gridStartY = 110; // note: x:25, y:110 (with 0-based inde
 const gridSquareSize = 32; // the pixel dimensions of a cell for us right now is 32x32.
 
 export function renderGame(game) {
-    console.log("rendering");
+    console.info("rendering");
     placePreloaded(game.ctx, "background", 0, 0);
 
     // grid rendering

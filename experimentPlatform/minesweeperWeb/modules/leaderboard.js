@@ -1,5 +1,35 @@
 import {get_leaderboard} from "/modules/apiWrapper.js"
 
+export function leaderboard_insert_entry(userID, threebv, duration, seed) {
+    const lbTable = document.getElementById("lbTable");
+
+    const row = document.createElement("tr");
+    lbTable.appendChild(row)
+
+    const userH = document.createElement("td");
+    const tH = document.createElement("td");
+    const tbvH = document.createElement("td");
+    const attempt = document.createElement("td");
+    userH.innerHTML = userID;
+    tbvH.innerHTML = threebv;
+    tH.innerHTML = duration;
+    row.appendChild(userH);
+    row.appendChild(tH);
+    row.appendChild(tbvH);
+    row.appendChild(attempt);
+
+
+    const button = document.createElement("button");
+    button.innerHTML = "attempt?";
+    button.onclick = () => { 
+        let urlParams = new URLSearchParams(window.location.search);
+        urlParams.set("seed", seed);
+
+        window.location.href = window.location.origin + window.location.pathname + "?" + urlParams.toString()
+    }
+    attempt.appendChild(button)
+}
+
 export async function leaderboard_refresh() {
     const leaderboardEntries = await get_leaderboard();
     console.log("lb entries:", leaderboardEntries);
@@ -20,6 +50,7 @@ export async function leaderboard_refresh() {
     lbWrap.appendChild(p)
 
     const lbTable = document.createElement("table");
+    lbTable.id = "lbTable"
     lbWrap.appendChild(lbTable);
 
     const tableHeader = document.createElement("tr");
@@ -36,8 +67,8 @@ export async function leaderboard_refresh() {
     tableHeader.appendChild(th3);
     tableHeader.appendChild(th4);
 
+    console.log("leaderboard entries:", leaderboardEntries)
     for (const entry of leaderboardEntries) {
-        console.log(entry)
         if (!entry.successful) continue;
 
         const userID = entry.userIDpub
@@ -46,30 +77,6 @@ export async function leaderboard_refresh() {
 
         if (duration == "0s") continue;
 
-        const row = document.createElement("tr");
-        lbTable.appendChild(row)
-
-        const userH = document.createElement("td");
-        const tH = document.createElement("td");
-        const tbvH = document.createElement("td");
-        const attempt = document.createElement("td");
-        userH.innerHTML = userID;
-        tbvH.innerHTML = threebv;
-        tH.innerHTML = duration;
-        row.appendChild(userH);
-        row.appendChild(tH);
-        row.appendChild(tbvH);
-        row.appendChild(attempt);
-
-
-        const button = document.createElement("button");
-        button.innerHTML = "attempt?";
-        button.onclick = () => { 
-            let urlParams = new URLSearchParams(window.location.search);
-            urlParams.set("seed", entry.seed);
-
-            window.location.href = window.location.origin + window.location.pathname + "?" + urlParams.toString()
-        }
-        attempt.appendChild(button)
+        leaderboard_insert_entry(userID, threebv, duration, entry.seed)
     }
 }

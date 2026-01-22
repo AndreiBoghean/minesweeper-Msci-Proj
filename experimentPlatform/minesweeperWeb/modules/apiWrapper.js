@@ -76,12 +76,14 @@ export function submit_playthrough(game) {
     console.log("calculated 3bv", threebv)
 
     const constructed_url = backend_endpoint + "/postSolve?userIDpub=" + userIDpub + "&userIDpriv=" + userIDpriv + "&timestamp=" + timestamp + "&duration=" + duration + "&successful=" + (game.finished && !game.lost) + "&seed=" + seed + "&threebv=" + threebv
-    fetch(constructed_url, {
+    let promis = fetch(constructed_url, {
         method: "POST",
         body: JSON.stringify(actionRecords),
         headers: { "Content-type": "application/json; charset=UTF-8" }
-    })
-      .then((response) => console.log("got playthrough response of", response));
+    });
+    promis = promis.then((response) => console.log("got playthrough response of", response));
+
+    return promis;
 }
 
 export async function get_leaderboard() {
