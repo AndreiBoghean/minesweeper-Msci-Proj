@@ -32,7 +32,7 @@ export function leaderboard_insert_entry(userID, threebv, duration, seed) {
 
 export async function leaderboard_refresh() {
     const leaderboardEntries = await get_leaderboard();
-    console.log("lb entries:", leaderboardEntries);
+    console.log("leaderboard entries:", leaderboardEntries)
 
     const lbWrap = document.getElementById("leaderboardWrap");
     lbWrap.innerHTML = "" // empty children
@@ -67,7 +67,6 @@ export async function leaderboard_refresh() {
     tableHeader.appendChild(th3);
     tableHeader.appendChild(th4);
 
-    console.log("leaderboard entries:", leaderboardEntries)
     for (const entry of leaderboardEntries) {
         if (!entry.successful) continue;
 

@@ -7,7 +7,7 @@ export function preloadURL(src, key) {
 	return new Promise((resolve) => preloadedImg.onload = () => {
         preloaded_assets[key] = preloadedImg;
         resolve();
-        console.log("resolved asset " + key);
+        // console.log("resolved asset " + key);
     });
 }
 
