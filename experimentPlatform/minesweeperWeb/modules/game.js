@@ -1,6 +1,65 @@
 import {placePreloaded} from "/modules/helpRender.js"
 import {submit_playthrough} from "/modules/apiWrapper.js"
 import {leaderboard_refresh} from "/modules/leaderboard.js"
+import {get_seed} from "/modules/apiWrapper.js"
+
+export function calculate3BV(game) {
+    // 3bv calculated as (all squares) minus (mine count)
+    let threebv = game.fieldWidth*game.fieldHeight;
+    let unclickables = [];
+    for (let y=0 ; y < game.fieldWidth ; y++)
+        for (let x=0 ; x < game.fieldWidth ; x++) {
+            const i = (y+1)*game.fieldWidth+x;
+
+            if (unclickables.includes(i))
+                continue;
+
+            else if (game.mineHints[y][x] == 0 && game.mineLayout[y][x] == 0) { // if cell is a non-mine with an empty hint
+                // console.log("didnt skip", x, y)
+                threebv += 1;
+                // unclickables.push(i);
+
+                const recuraboye = (eggs, wai) => {
+                    const j = (wai+1)*game.fieldWidth+eggs;
+                    if (unclickables.includes(j)) return;
+                    if (game.mineLayout[wai][eggs] == 0) {
+                        // console.log(unclickables, j, eggs, wai, game.mineHints[wai][eggs], game.mineLayout[wai][eggs])
+                        // game.fieldState[wai][eggs] = 1;
+                        unclickables.push(j); // if cell has an empty hint
+
+                        if (game.mineHints[wai][eggs] == 0) neighbour_operation(game.fieldWidth, game.fieldHeight, eggs, wai, recuraboye);
+                    }
+                };
+                recuraboye(x, y);
+            }
+
+            else if (game.mineLayout[y][x] == 1) // if cell is a mine
+            // {game.fieldState[y][x] = 1;  unclickables.push((y+1)*game.fieldWidth+x); }
+            { unclickables.push((y+1)*game.fieldWidth+x); }
+
+            // else if ((game.mineLayout[y][x] != 1) && (game.mineHints[y][x] != 0)) // the cell isnt a mine and isnt a zero-hint
+            //     neighbour_operation(game.fieldWidth, game.fieldHeight, x, y, (xAdj, yAdj) => { // for each of the cell's neighbours that isnt off the field..
+            //         // if the neighbour cell isnt a mine, has a 0 hint, and isnt already accounted for... then count it.
+            //         if ((game.mineLayout[yAdj][xAdj] != 1) && (game.mineHints[yAdj][xAdj] == 0) && (!unclickables.includes((yAdj+1)*game.fieldWidth+xAdj))) unclickables.push((yAdj+1)*game.fieldWidth+xAdj)
+            //     });
+
+            // else {
+            //     console.error("cell index missed in 3bv calculation", x, y)
+            //     game.fieldState[y][x] = 1;
+            // }
+        }
+
+    // console.log("unclickables:", unclickables);
+    threebv -= unclickables.length;
+    //
+    // console.log("thing1", (game.fieldWidth*game.fieldHeight));
+    // console.log("thing1", (game.mineHints.reduce((r1, r2) => {return r1.concat(r2)})));
+    // console.log("thing1", (game.mineCount));
+    // let threebv = (game.fieldWidth*game.fieldHeight) - (game.mineHints.reduce((r1, r2) => {return r1.concat(r2)}).filter(c => c == 0).length) - (neighboursEmpty.length) - (game.mineCount);
+    console.log("calculated 3bv", threebv)
+
+    return threebv;
+}
 
 export function gameInit(fieldWidth, fieldHeight, mineCount, seed=undefined) {
      // prepare a canvas to keep our game instance
@@ -39,19 +98,23 @@ export function gameInit(fieldWidth, fieldHeight, mineCount, seed=undefined) {
 
     // /*
     function printer2d(thing) { for (const row of thing) {console.log(row)}}
-    console.log("intial field state:");
-    printer2d(fieldState)
-    console.log("given mine randomisation:");
-    printer2d(mineLayout)
-    console.log("computed mine hints:");
-    printer2d(mineHints)
+    // console.log("intial field state:");
+    // printer2d(fieldState)
+    // console.log("given mine randomisation:");
+    // printer2d(mineLayout)
+    // console.log("computed mine hints:");
+    // printer2d(mineHints)
     // */
 
     return gameInstance;
 }
 
-export function gameRestart(game) { // WARN: we "restart" a game by deleting the old one and replacing it with a new one. if any changes stylistic or otherwise are made to the original canvas without our knowledge, we will unknowingly overwrite them. issue out of scope :)
-    const newGame = gameInit(game.fieldWidth, game.fieldHeight, game.mineCount)
+export async function gameRestart(game) { // WARN: we "restart" a game by deleting the old one and replacing it with a new one. if any changes stylistic or otherwise are made to the original canvas without our knowledge, we will unknowingly overwrite them. issue out of scope :)
+    let seed = get_seed();
+    seed = parseInt(seed); // HACK: get_seed sometimes returns "random" indicating we should use a random seed. parseInt for a string yields NaN, which gets caught by the isNaN check below.
+    console.log("seed:", seed);
+
+    const newGame = gameInit(game.fieldWidth, game.fieldHeight, game.mineCount, isNaN(seed) ? undefined : seed)
     game.ctx.canvas.replaceWith(newGame.ctx.canvas);
     return newGame;
 }
@@ -73,6 +136,7 @@ function finishGame(game, lost) {
 }
 
 export function mineGen(fieldWidth, fieldHeight, mineCount, mineSeed=undefined) {
+    console.log("mineGen called with seed", mineSeed)
     // TODO: randomisation to ensure a specific number of mines
     if (mineSeed == undefined) mineSeed = Math.floor(Date.now()/1000) // current time in seconds
     let seedIter = mineSeed
@@ -158,8 +222,12 @@ function actionResolve(game, action, x, y, timestamp) {
     else if (action == 4)
     {
         game.restartPressed = false;
-        const newGame = gameRestart(game);
-        renderGame(newGame);
+
+        // HACK: mineGen inside gameRestart should probs be the one whom gets a seed from the server, but I'd need to make it async.. so seed handing is done by main.js and gameRestart instead, so that way I can minimize where I deal with async stuff.
+        gameRestart(game).then((newGame) => {renderGame(newGame)})
+
+        // const newGame = gameRestart(game);
+        // renderGame(newGame);
         actionRecord.successful = true;
     }
     else if (game.finished) { // game.finished check in the middle, meaning the if clauses below only trigger if the game isnt finished.
