@@ -151,7 +151,7 @@ export function mineGen(fieldWidth, fieldHeight, mineCount, mineSeed=undefined) 
         // console.log("indexes:", x, y);
         if (game[y][x] == 0) game[y][x] = 1;
         else _ -= 1
-    }
+    }30-3
 
     return [game, mineSeed];
 }
@@ -237,11 +237,11 @@ function actionResolve(game, action, x, y, timestamp) {
         actionRecord.successful = true;
         cell_reveal(game, x, y)
     }
-    else if (action == 1 && (game.fieldState[y][x] == 1 || game.fieldState[y][x] == 0)) { // right click for a toggle flag
+    else if (action == 1 && (game.fieldState[y][x] == 1 || game.fieldState[y][x] == 0)) { // right click on a closed cell will toggle flag
         actionRecord.successful = true;
         game.fieldState[y][x] = game.fieldState[y][x] == 1 ? 0 : 1; // toggle flag state of the cell.
     }
-    else if (action == 2 && game.fieldState[y][x] == 2) { // if the action is a left+right click, and the cell is an open cell with a number..
+    else if ((action == 1 || action == 2) && game.fieldState[y][x] == 2) { //if it's a right click on an open cell, or a left+right click, and the cell is an open cell with a number.. a chord should trigger.
         actionRecord.successful = true;
         // first count the number of neighbouring flags
         let flaggedNeighbours = 0
@@ -433,10 +433,15 @@ export function interactHandler(e, game) {
 
     if (!(x >= 0 && x < game.fieldWidth && y >= 0 && y < game.fieldHeight)) return;
 
-    if ((mainDown || altDown) && (justChanged == "main" || justChanged == "alt")) actionResolve(game, mainDown ? (altDown ? 2 : 0) : 1, x, y, e.timeStamp); // HACK: if the mainDown conditional fails, then implicitly altDown must be true since mainDown || altDown was true;
-    else if (justChanged == "context" && !altDown) {
-        actionResolve(game, 1, x, y, e.timeStamp);
-    }
+    if (mainDown && !altDown && justChanged == "main") actionResolve(game, 0, x, y, e.timeStamp); // left click action. only opens.
+    else if (!mainDown && altDown && justChanged == "alt") actionResolve(game, 1, x, y, e.timeStamp); // right click action. either toggles flag or triggers a chord.
+    else if (mainDown && altDown && (justChanged == "alt" || justChanged == "main")) actionResolve(game, 2, x, y, e.timeStamp); // chord action for left+right click.
+    else if (!altDown && justChanged == "context") actionResolve(game, 1, x, y, e.timeStamp); // long-press action is the same as a right click.
+
+    // if ((mainDown || altDown) && (justChanged == "main" || justChanged == "alt")) actionResolve(game, mainDown ? (altDown ? 2 : 0) : 1, x, y, e.timeStamp); // HACK: if the mainDown conditional fails, then implicitly altDown must be true since mainDown || altDown was true;
+    // else if (justChanged == "context" && !altDown) {
+    //     actionResolve(game, 1, x, y, e.timeStamp);
+    // }
 
     return false; // need to return false so the default context menu doesnt show up
 
