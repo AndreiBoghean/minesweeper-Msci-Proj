@@ -69,10 +69,6 @@ app.get("/getRandomSeed", async (req, res) => { // NOTE: no input validation sho
     res.send(seed);
 })
 
-app.get("/", (req, res) => {
-    res.send("Hello World!!! you wanted:" + req.query.hithere)
-})
-
 app.get("/listSolves", async (req, res) => { // NOTE: no input validation should be needed here.
     const projectFields = { _id: 0, userIDpub: 1, timestamp: 1, seed: 1, duration: 1, successful: 1, threebv: 1 };
     const result = await collection.find().project(projectFields).toArray();
