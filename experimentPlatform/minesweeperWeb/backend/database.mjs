@@ -71,7 +71,8 @@ app.get("/getRandomSeed", async (req, res) => { // NOTE: no input validation sho
 
 app.get("/listSolves", async (req, res) => { // NOTE: no input validation should be needed here.
     const projectFields = { _id: 0, userIDpub: 1, timestamp: 1, seed: 1, duration: 1, successful: 1, threebv: 1 };
-    const result = await collection.find().project(projectFields).toArray();
+    let result = await collection.find().project(projectFields).toArray();
+    result = result.reverse(); // .reverse to return results with newest first
     console.log("found existing solves", result);
 
     res.send(result);
