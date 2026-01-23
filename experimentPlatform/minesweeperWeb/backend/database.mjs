@@ -1,5 +1,6 @@
 import { MongoClient } from "mongodb"
 import express from "express"
+import bodyParser from "body-parser";
 
 // mongodb database setup // TODO: abstract mongoDB and express routing to different modules?
 
@@ -20,6 +21,7 @@ console.log("Connected successfully to database server");
 
 const db = client.db("developmentDB");
 const collection = db.collection("documents");
+const collection_comments = db.collection("userComments");
 
 // express network routing configuration
 // TODO: support HTTPS
@@ -28,6 +30,7 @@ const port = parseInt(argOrDefault("--port", "3000"));
 
 app.use(express.text()) // tell the middleware to allow and parse Content-Type: text/plain // (mainly for testing purposes)
 app.use(express.json()) // tell the middleware to allow and parse Content-Type: application/json
+app.use(bodyParser.urlencoded({ extended: true })); // for parsing Content-Type: application/x-www-form-urlencoded
 
 app.use(function (req, res, next) {
     res.setHeader("Access-Control-Allow-Origin", argOrDefault("--allowedOrigin", "*")); // WARN: change this to the deployment domain when you deploy.
@@ -117,6 +120,32 @@ app.post("/postSolve", async (req, res) => {
         seed: seed, threebv: threebv,
         timestamp: timestamp, duration: duration, successful: successful, actionRecords: actionRecords}
     const result = await collection.insertOne(submissionRecord)
+    console.log("inserted new submission", submissionRecord)
+    console.log("obtained result", result)
+})
+
+app.post("/postComment", async (req, res) => {
+    // assumes a well-formed request... TODO: input validation
+    const userAgent = req.get("User-Agent");
+    console.log("bod", await req.body)
+    const userIDpub = req.body.userIDpub; // expected as string.
+    const userIDpriv = req.body.userIDpriv; // expected as string.
+    const body = req.body.comment;
+
+
+    console.log("got user agent", userAgent);
+    console.log("got userIDpub", userIDpub);
+    console.log("got userIDpriv", userIDpriv);
+    console.log("got body", body);
+
+    res.send("post recieved");
+
+    const submissionRecord = {
+        userAgent: userAgent,
+        userIDpub: userIDpub, userIDpriv: userIDpriv,
+        comment: body,
+    }
+    const result = await collection_comments.insertOne(submissionRecord)
     console.log("inserted new submission", submissionRecord)
     console.log("obtained result", result)
 })
