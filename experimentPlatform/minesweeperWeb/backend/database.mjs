@@ -138,7 +138,7 @@ app.post("/postComment", async (req, res) => {
     console.log("got userIDpriv", userIDpriv);
     console.log("got body", body);
 
-    res.send("post recieved");
+    res.redirect("https://minesweeper.andreiboghean.com");
 
     const submissionRecord = {
         userAgent: userAgent,
