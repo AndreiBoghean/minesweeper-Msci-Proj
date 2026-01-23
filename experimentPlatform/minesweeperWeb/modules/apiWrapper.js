@@ -16,7 +16,7 @@ function neighbour_operation(w, h, x, y, fun) {
 
 export function submit_playthrough(game) {
     console.info("submitting playthrough")
-    const userIDpriv = localStorage.userIDpub;
+    const userIDpriv = localStorage.userIDpriv;
     const userIDpub = localStorage.userIDpub;
     const timestamp = game.playStart;
     const seed = game.mineSeed;
