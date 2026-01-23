@@ -87,6 +87,10 @@ console.log("seed:", seed);
 if (!localStorage.hasOwnProperty("userIDpriv")) localStorage.userIDpriv = Date.now() * 10 * Math.random(); // assumes we'll never have more than 10 people "signing up" per milisecond. if this somehow causes problems then I quit (maybe I should charge for sign ups?)
 if (!localStorage.hasOwnProperty("userIDpub")) localStorage.userIDpub = Math.round(localStorage.userIDpriv).toString().slice(0, 5);
 
+// populate the form with user IDs for whenever the user wants to submit a comment
+document.getElementById("userIDprivInp").value = localStorage.userIDpriv;
+document.getElementById("userIDpubInp").value = localStorage.userIDpub;
+
 // setup fresh game
 let gameInstance = gameInit(9, 9, 10, isNaN(seed) ? undefined : seed);
 

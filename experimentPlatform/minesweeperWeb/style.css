@@ -80,13 +80,15 @@ canvas.gameView {
 
 /* the classic minesweeper protrusion style */
 #leaderboardWrap,
-button {
+button,
+input[type="submit"] {
     background-color: #c0c0c0;
     border-color: #FFFFFF #808080 #808080 #FFFFFF;
 }
 
 /* the classic minesweeper recessed style */
-#leaderboardWrap table tr td {
+#leaderboardWrap table tr td,
+textarea {
     background-color: #c0c0c0;
     border-color: #808080 #FFFFFF #FFFFFF #808080;
 }
