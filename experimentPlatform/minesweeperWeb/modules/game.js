@@ -411,7 +411,7 @@ export function interactHandler(e, game) {
         currentY = touch.offsetY;
         justChanged = "main"
     }
-    else if (e.type == "contextmenu") {
+    else if (e.type == "contextmenu" && e.pointerType == "touch") {
         currentX = e.offsetX;
         currentY = e.offsetY;
         justChanged = "context"
@@ -423,7 +423,7 @@ export function interactHandler(e, game) {
     {
         if (mainDown) actionResolve(game, 3, -1, -1, e.timeStamp); // action id 3 is restart button clicked
         else actionResolve(game, 4, -1, -1, e.timeStamp); // action id 4 is restart button released
-        return;
+        return false;
     }
 
     const [x, y] = pixelToCell(currentX, currentY);
@@ -431,7 +431,7 @@ export function interactHandler(e, game) {
     console.log("translated", currentX, currentY, "to", x, y);
     console.log("mainDown?", mainDown, "altDown?", altDown);
 
-    if (!(x >= 0 && x < game.fieldWidth && y >= 0 && y < game.fieldHeight)) return;
+    if (!(x >= 0 && x < game.fieldWidth && y >= 0 && y < game.fieldHeight)) return false;
 
     if (mainDown && !altDown && justChanged == "main") actionResolve(game, 0, x, y, e.timeStamp); // left click action. only opens.
     else if (!mainDown && altDown && justChanged == "alt") actionResolve(game, 1, x, y, e.timeStamp); // right click action. either toggles flag or triggers a chord.
