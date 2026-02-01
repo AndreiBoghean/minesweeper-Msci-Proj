@@ -1,156 +1,17 @@
 import numpy as np
-from scipy.signal import convolve2d
 import copy
-# import curses
 
-# stdscr = curses.initscr()
+import inputHandler
 
-########## RANDOM MINESWEEPER-SPECIFIC STUFF
-def renderGrid(grid):
-    for row in grid:
-        for cell in row:
-            if cell == 9: print("X") # mine hints dont go to 9, so we hijact to use 9 as the ID for a mine.
-            else: print (" ")
-
-########################################## FULL CONTROL INPUT CREATION
-
-testCaseMines1 = np.array([
-    [0, 0, 0, 0, 0, 0],
-    [0, 0, 1, 1, 0, 0],
-    [0, 0, 0, 0, 0, 0]
-])
-# random note relevant to "todo" variable..
-# 12 from corners
-# 5*(4+4+1+1)=5*10=50 from edges
-# 8*4=32 from full cells
-# 12+50+32=94 total todo items
-
-testCaseMines2 = np.array([
-    [0, 0],
-    [1, 1],
-])
-
-testCaseMines3 = np.array([
-    [0, 0, 0, 0, 0, 0, 0, 0, 0],
-    [0, 0, 0, 0, 0, 0, 0, 0, 0],
-    [0, 0, 0, 0, 0, 0, 0, 0, 0],
-    [0, 0, 0, 0, 0, 0, 0, 0, 0],
-    [0, 0, 0, 0, 1, 1, 0, 0, 0],
-    [0, 0, 0, 0, 0, 0, 0, 0, 0],
-    [0, 0, 0, 0, 0, 0, 0, 0, 0],
-    [0, 0, 0, 0, 0, 0, 0, 0, 0],
-    [0, 0, 0, 0, 0, 0, 0, 0, 0]
-])
-
-
-testCase4 = np.array([
-    [0, 0, 0, 0, 0, 0, 0, 0, 0],
-    [0, 0, 0, 0, 0, 0, 0, 0, 0],
-    [0, 0, 0, 0, 0, 0, 0, 0, 0],
-    [0, 0, 0, 1, 9, 1, 0, 0, 0],
-    [0, 0, 0, 9, 9, 9, 0, 0, 0],
-    [0, 0, 0, 9, 9, 9, 0, 0, 0],
-    [0, 0, 0, 0, 0, 0, 0, 0, 0],
-    [0, 0, 0, 0, 0, 0, 0, 0, 0],
-    [0, 0, 0, 0, 0, 0, 0, 0, 0]
-])
-
-testCase5 = np.array([
-    [0, 0, 0, 0, 0, 0, 0, 0],
-    [0, 0, 1, 9, 1, 0, 0, 0],
-    [0, 0, 9, 9, 9, 0, 0, 0],
-    [0, 0, 9, 9, 9, 0, 0, 0],
-    [0, 0, 0, 0, 0, 0, 0, 0]
-])
-
-testCase6 = np.array([
-    [0, 0, 0, 0, 0, 0, 0, 0, 0],
-    [0, 0, 0, 1, 9, 1, 0, 0, 0],
-    [0, 0, 0, 9, 9, 9, 0, 0, 0],
-    [0, 0, 0, 9, 9, 9, 0, 0, 0],
-    [0, 0, 0, 0, 0, 0, 0, 0, 0]
-])
-
-# FUTURE NOTE: test case 5 is solved correctly.. test case 6 isnt.
-chosenTestCase = testCase6
-
-testCaseMines = np.copy(chosenTestCase)
-testCaseMines[chosenTestCase != 1] = 0
-
-testCaseHidden = np.copy(chosenTestCase)
-testCaseHidden[testCaseHidden != 9] = 0
-
-
-# choose mine arrangement.. # grid of 0s and 1s for safe, not safe
-mines = testCaseMines
-
-# create hints.. 0-8
-kernel = [[1, 1, 1], [1, 1, 1], [1, 1, 1]]
-hints = convolve2d(mines, kernel, "same")
-
-# choose hiddens arrangement.. grid of 0s and 1s for revealed, hidden
-hiddens = testCaseHidden
-
-# build final input.. 0-8 for hint, 9 for hidden. # HACK: using 9 to represent covered cells in the hints representation.
-input = hints # start from the hints
-input[mines==1] = 9 # remove the hints that are actually mines
-input[hiddens!=0] = 9 # remove the hints that are not visible.
-
-
-################# PARTIAL CONTROL INPUT PARSING
-testCasePAPERv1 = np.array([
-    [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 1, 0],
-    [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 2, 1, 1, 1, 0],
-    [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 1, 0, 0, 0, 0],
-    [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 1, 1, 0, 1, 1],
-    [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 2, 1, 2, 9],
-    [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9],
-    [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9],
-    [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9],
-    [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9],
-    [9, 9, 9, 9, 9, 9, 9, 9, 9, 2, 1, 2, 9, 9, 9, 9],
-    [9, 9, 9, 9, 9, 9, 1, 1, 1, 1, 0, 2, 9, 4, 2, 1],
-    [9, 9, 9, 9, 9, 9, 1, 0, 0, 0, 0, 1, 1, 1, 0, 0],
-    [9, 9, 2, 2, 3, 2, 1, 0, 0, 0, 0, 0, 1, 1, 1, 0],
-    [9, 9, 1, 0, 0, 0, 0, 1, 1, 1, 0, 0, 1, 9, 1, 0],
-    [9, 9, 3, 3, 3, 2, 1, 1, 9, 1, 0, 0, 1, 1, 1, 0],
-    [9, 9, 9, 9, 9, 9, 9, 9, 9, 1, 0, 0, 0, 0, 0, 0]
-])
-
-testCasePAPERv2 = np.array([
-    [0, 0, 0, 0, 1, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 1],
-    [0, 0, 1, 1, 2, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9],
-    [0, 0, 2, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9],
-    [0, 0, 2, 9, 9, 9, 9, 9, 9, 9, 2, 1, 3, 9, 9, 9],
-    [0, 0, 1, 9, 9, 9, 9, 9, 9, 9, 2, 0, 1, 9, 9, 9],
-    [1, 1, 1, 9, 9, 9, 9, 9, 9, 9, 2, 0, 1, 1, 2, 1],
-    [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 2, 0, 0, 0, 0, 0],
-    [9, 2, 2, 1, 2, 3, 9, 2, 2, 1, 1, 1, 1, 1, 0, 0],
-    [9, 9, 2, 0, 0, 1, 9, 1, 0, 0, 0, 1, 9, 1, 0, 0],
-    [9, 9, 3, 1, 1, 1, 9, 1, 0, 0, 0, 2, 9, 2, 0, 0],
-    [9, 9, 9, 9, 9, 9, 9, 1, 0, 0, 0, 1, 9, 2, 1, 0],
-    [9, 9, 9, 9, 9, 9, 9, 2, 1, 0, 0, 1, 2, 9, 2, 1],
-    [9, 9, 9, 9, 9, 9, 9, 9, 2, 1, 0, 0, 2, 9, 9, 9],
-    [9, 9, 9, 9, 9, 3, 1, 2, 9, 1, 0, 1, 3, 9, 3, 1],
-    [9, 9, 9, 9, 9, 3, 0, 1, 1, 1, 0, 1, 9, 9, 2, 0],
-    [9, 9, 9, 9, 9, 2, 0, 0, 0, 0, 0, 1, 9, 9, 1, 0]
-])
-
-hints = testCasePAPERv1
+hints = inputHandler.get_test_input() # NOTE: "hints" here also includes hidden cells, indicated by a value of 9
 
 print("hints:")
 print(hints)
 print()
 
-
-
-
 ####### DOMAINS
 
 def renderDomains(domains):
-
-    
-
     colGRAY = '\033[90m'
     hcolGRAY = '\033[100m'
     hbcolGRAY = '\033[100;5m'
