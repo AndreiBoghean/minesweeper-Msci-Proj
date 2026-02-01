@@ -11,6 +11,8 @@ def renderGrid(grid):
             if cell == 9: print("X") # mine hints dont go to 9, so we hijact to use 9 as the ID for a mine.
             else: print (" ")
 
+########################################## FULL CONTROL INPUT CREATION
+
 testCaseMines1 = np.array([
     [0, 0, 0, 0, 0, 0],
     [0, 0, 1, 1, 0, 0],
@@ -78,9 +80,6 @@ testCaseHidden = np.copy(chosenTestCase)
 testCaseHidden[testCaseHidden != 9] = 0
 
 
-
-
-
 # choose mine arrangement.. # grid of 0s and 1s for safe, not safe
 mines = testCaseMines
 
@@ -97,6 +96,28 @@ input[mines==1] = 9 # remove the hints that are actually mines
 input[hiddens!=0] = 9 # remove the hints that are not visible.
 
 
+################# PARTIAL CONTROL INPUT PARSING
+testCasePAPERv1 = np.array([
+    [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 1, 0],
+    [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 2, 1, 1, 1, 0],
+    [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 1, 0, 0, 0, 0],
+    [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 1, 1, 0, 1, 1],
+    [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 2, 1, 2, 9],
+    [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9],
+    [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9],
+    [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9],
+    [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9],
+    [9, 9, 9, 9, 9, 9, 9, 9, 9, 2, 1, 2, 9, 9, 9, 9],
+    [9, 9, 9, 9, 9, 9, 1, 1, 1, 1, 0, 2, 9, 4, 2, 1],
+    [9, 9, 9, 9, 9, 9, 1, 0, 0, 0, 0, 1, 1, 1, 0, 0],
+    [9, 9, 2, 2, 3, 2, 1, 0, 0, 0, 0, 0, 1, 1, 1, 0],
+    [9, 9, 1, 0, 0, 0, 0, 1, 1, 1, 0, 0, 1, 9, 1, 0],
+    [9, 9, 3, 3, 3, 2, 1, 1, 9, 1, 0, 0, 1, 1, 1, 0],
+    [9, 9, 9, 9, 9, 9, 9, 9, 9, 1, 0, 0, 0, 0, 0, 0]
+])
+
+hints = testCasePAPERv1
+
 print("hints:")
 print(hints)
 print()
@@ -107,16 +128,21 @@ print()
 ####### DOMAINS
 
 def renderDomains(domains):
-    for y, row in enumerate(input):
+    colGRAY = '\033[90m'
+    colPURPLE = '\033[95m'
+    colRED = '\033[91m'
+    colRESTORE = '\033[0m'
+
+    for y, row in enumerate(hints):
         for x, cell in enumerate(row):
             if domains[(x, y)] == [True, True]:
-                print("?", end="")
+                print(colPURPLE + "?", end=colRESTORE)
             elif domains[(x, y)] == [False, True]:
-                print("X", end="")
+                print(colRED + "X", end=colRESTORE)
             elif domains[(x, y)] == [True, False]:
-                print(hints[y, x], end="")
+                print(f"{colGRAY if hints[y,x]==9 else ''}{hints[y, x]}", end=colRESTORE)
             else:
-                print("Q", end="")
+                print(celRED + "Q", end=colRESTORE)
         print()
 
 # each entry in the domains dict holds a list representing the domain for a single variable. an item's position in the list indicates the item (e.g. mine, flag label) and it's value (True, False) represents whether it's still present in the domain or if it's been eliminated.
@@ -125,7 +151,7 @@ domains = {}
 # an arbitrary constraint program has many variables.. ours mainly has cells.
 # we're treading carefully to not assume cells == variables.. so we can have variables besides cells.
 # this is why we're adding cells seperately from domain
-for y, row in enumerate(input):
+for y, row in enumerate(hints):
     for x, cell in enumerate(row):
         domains[(x, y)] = [True, True] # IMPLICIT labels: position 0 for "empty", position 1 for "mine". if True then the coresponding label is still in the domain.
         # HACK: bounds of variable domains are not recorded.. I'm expecting myself to know and remember what domain members corespond to what.
@@ -185,9 +211,11 @@ constraints = [] # WARN@ "constraints" here actually means "constraint domains".
 variableToConstraints = {}
 constraintsToVariables = {}
 
-for y in range(input.shape[0]):
-    for x in range(input.shape[1]):
+for y in range(hints.shape[0]):
+    for x in range(hints.shape[1]):
         hintCount = hints[y][x]
+
+        print(f"at pos ({x}, {y}), next constraint is {len(constraints)}")
 
         if (hintCount == 9): # hintCount==9 states a covered cell, so we dont constrain its neighbours because we dont have a "hint" for that cell.
             continue
@@ -232,10 +260,10 @@ for y in range(input.shape[0]):
         relevantVariables = [] # temporary list with all the variables this constraint influences
         for y2 in range(y-1, y+2):
             for x2 in range(x-1, x+2):
-                if (y2 != y or x2 != x) and y2 >= 0 and y2 < input.shape[0] and x2 >= 0 and x2 < input.shape[1]: # if the neighbour is within bounds
+                if (y2 != y or x2 != x) and y2 >= 0 and y2 < hints.shape[0] and x2 >= 0 and x2 < hints.shape[1]: # if the neighbour is within bounds
                     relevantVariables.append((x2, y2))
                 # else:
-                #     print("discarded neighbor", x2, y2, "for", x, y, f"..see {y2} != {y} and {x2} != {x} and {y2} >= 0 and {y2} < {input.shape[0]} and {x2} >= 0 and {x2} < {input.shape[1]}")
+                #     print("discarded neighbor", x2, y2, "for", x, y, f"..see {y2} != {y} and {x2} != {x} and {y2} >= 0 and {y2} < {hints.shape[0]} and {x2} >= 0 and {x2} < {hints.shape[1]}")
         # print("releveant variables (Neighbours) at", x, y, "are", relevantVariables)
 
         # record the mapping from this new constraint to all of the variables it influences
@@ -309,8 +337,9 @@ print("TODO:")
 print(todo)
 
 def consistencyCheck(testableLabel, victimVariable, supportVariables, constraint):
-    # print(f"conistency check on {testableLabel=}, {victimVariable=}, {supportVariables=}, {constraint=}")
+    print(f"conistency check on {testableLabel=}, {victimVariable=}, {supportVariables=}, {constraint=}")
     for acceptedAssignment in constraints[constraint]:
+        print("checking assignment", acceptedAssignment)
         if acceptedAssignment[victimVariable] != testableLabel:
             continue
 
@@ -320,6 +349,7 @@ def consistencyCheck(testableLabel, victimVariable, supportVariables, constraint
             requiredLabel = acceptedAssignment[supVar] # get the label that this assignment requires for this variable
             if not domains[supVar][requiredLabel]:
                 supportable = False
+                print(f"not supportable since {supVar} doesnt have label {requiredLabel}")
                 break
 
         if supportable: return True
@@ -336,7 +366,7 @@ while len(todo) > 0: # line 3
 
     #line 5
     todoYs = [otherVar for otherVar in constraintsToVariables[todoc] if otherVar != todoX]
-    # print("for", todoable, "we get Ys", todoYs)
+    print("for", todoable, "we get Ys", todoYs)
 
     # line 6 and 7
     """
@@ -352,12 +382,6 @@ while len(todo) > 0: # line 3
 
     # line 8
     if acceptedLabels != domains[todoX]:
-        print(f"domains changed! {domains[todoX]} went to {acceptedLabels}")
-        print("new domains:")
-        print(domains)
-        renderDomains(domains)
-        print()
-
         # line 9
         """
         for this step we need every variable Z such that Z is connected to X as a neighbour through a constraint c'
@@ -371,11 +395,19 @@ while len(todo) > 0: # line 3
         # line 10
         domains[todoX] = acceptedLabels
 
+        print(f"domains changed! on {todoX}: {domains[todoX]} went to {acceptedLabels}")
+        print("new domains:")
+        # print(domains)
+        renderDomains(domains)
+        print()
+
     # print("new todo:")
     # print(todo)
     # print()
     # print()
 
+print("final domain:")
+renderDomains(domains)
 """
 remember - AC3,4 only operates over binary constraints.
 we've implemented this model directly with multi-varaible constraints (specifically, constraints with 8 variables, each of its neighbours)
