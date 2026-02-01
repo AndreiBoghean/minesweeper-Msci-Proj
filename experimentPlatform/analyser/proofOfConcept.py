@@ -116,7 +116,26 @@ testCasePAPERv1 = np.array([
     [9, 9, 9, 9, 9, 9, 9, 9, 9, 1, 0, 0, 0, 0, 0, 0]
 ])
 
-hints = testCasePAPERv1
+testCasePAPERv2 = np.array([
+    [0, 0, 0, 0, 1, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 1],
+    [0, 0, 1, 1, 2, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9],
+    [0, 0, 2, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9],
+    [0, 0, 2, 9, 9, 9, 9, 9, 9, 9, 2, 1, 3, 9, 9, 9],
+    [0, 0, 1, 9, 9, 9, 9, 9, 9, 9, 2, 0, 1, 9, 9, 9],
+    [1, 1, 1, 9, 9, 9, 9, 9, 9, 9, 2, 0, 1, 1, 2, 1],
+    [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 2, 0, 0, 0, 0, 0],
+    [9, 2, 2, 1, 2, 3, 9, 2, 2, 1, 1, 1, 1, 1, 0, 0],
+    [9, 9, 2, 0, 0, 1, 9, 1, 0, 0, 0, 1, 9, 1, 0, 0],
+    [9, 9, 3, 1, 1, 1, 9, 1, 0, 0, 0, 2, 9, 2, 0, 0],
+    [9, 9, 9, 9, 9, 9, 9, 1, 0, 0, 0, 1, 9, 2, 1, 0],
+    [9, 9, 9, 9, 9, 9, 9, 2, 1, 0, 0, 1, 2, 9, 2, 1],
+    [9, 9, 9, 9, 9, 9, 9, 9, 2, 1, 0, 0, 2, 9, 9, 9],
+    [9, 9, 9, 9, 9, 3, 1, 2, 9, 1, 0, 1, 3, 9, 3, 1],
+    [9, 9, 9, 9, 9, 3, 0, 1, 1, 1, 0, 1, 9, 9, 2, 0],
+    [9, 9, 9, 9, 9, 2, 0, 0, 0, 0, 0, 1, 9, 9, 1, 0]
+])
+
+hints = testCasePAPERv2
 
 print("hints:")
 print(hints)
@@ -128,19 +147,40 @@ print()
 ####### DOMAINS
 
 def renderDomains(domains):
+
+    
+
     colGRAY = '\033[90m'
+    hcolGRAY = '\033[100m'
+    hbcolGRAY = '\033[100;5m'
     colPURPLE = '\033[95m'
+    hcolPURPLE = '\033[105m'
     colRED = '\033[91m'
+    hcolRED = '\033[101m'
+    hbcolRED = '\033[101;5m'
     colRESTORE = '\033[0m'
+
+    colBLUE = '\033[34m'
+    hcolBLUE = '\033[44m'
+    hbcolBLUE = '\033[44;5m'
+    colGREEN = '\033[32m'
+    hcolGREEN = '\033[42m'
+    hbcolGREEN = '\033[42;5m'
+    colYELLOW = '\033[33m'
+    hcolYELLOW = '\033[43m'
+    hbcolYELLOW = '\033[43;5m'
 
     for y, row in enumerate(hints):
         for x, cell in enumerate(row):
             if domains[(x, y)] == [True, True]:
-                print(colPURPLE + "?", end=colRESTORE)
+                print(hcolGRAY + "?", end=colRESTORE)
             elif domains[(x, y)] == [False, True]:
-                print(colRED + "X", end=colRESTORE)
+                # print(hbcolRED + "X", end=colRESTORE)
+                print(hcolBLUE+ "X", end=colRESTORE)
             elif domains[(x, y)] == [True, False]:
-                print(f"{colGRAY if hints[y,x]==9 else ''}{hints[y, x]}", end=colRESTORE)
+                # print(["", colBLUE, colGREEN, colYELLOW, "", "", "", "", "", hbcolGRAY][hints[y, x]], end="")
+                print(["", colBLUE, colGREEN, colYELLOW, "", "", "", "", "", hcolBLUE][hints[y, x]], end="")
+                print(hints[y, x], end=colRESTORE)
             else:
                 print(celRED + "Q", end=colRESTORE)
         print()
