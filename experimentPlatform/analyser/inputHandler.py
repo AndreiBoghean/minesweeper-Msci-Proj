@@ -1,47 +1,90 @@
 import numpy as np
 from scipy.signal import convolve2d
 
+import json
+
+import minesweeperModel
+import solverAlgs
+
+testCaseMines3 = np.array([
+    [0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 1, 1, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0]
+])
+
+
+testCase4 = np.array([
+    [0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 1, 9, 1, 0, 0, 0],
+    [0, 0, 0, 9, 9, 9, 0, 0, 0],
+    [0, 0, 0, 9, 9, 9, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0]
+])
+
+testCase5 = np.array([
+    [0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 1, 9, 1, 0, 0, 0],
+    [0, 0, 9, 9, 9, 0, 0, 0],
+    [0, 0, 9, 9, 9, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0]
+])
+
+testCase6 = np.array([
+    [0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 1, 9, 1, 0, 0, 0],
+    [0, 0, 0, 9, 9, 9, 0, 0, 0],
+    [0, 0, 0, 9, 9, 9, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0]
+])
+
+testCasePAPERv1 = np.array([
+    [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 1, 0],
+    [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 2, 1, 1, 1, 0],
+    [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 1, 0, 0, 0, 0],
+    [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 1, 1, 0, 1, 1],
+    [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 2, 1, 2, 9],
+    [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9],
+    [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9],
+    [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9],
+    [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9],
+    [9, 9, 9, 9, 9, 9, 9, 9, 9, 2, 1, 2, 9, 9, 9, 9],
+    [9, 9, 9, 9, 9, 9, 1, 1, 1, 1, 0, 2, 9, 4, 2, 1],
+    [9, 9, 9, 9, 9, 9, 1, 0, 0, 0, 0, 1, 1, 1, 0, 0],
+    [9, 9, 2, 2, 3, 2, 1, 0, 0, 0, 0, 0, 1, 1, 1, 0],
+    [9, 9, 1, 0, 0, 0, 0, 1, 1, 1, 0, 0, 1, 9, 1, 0],
+    [9, 9, 3, 3, 3, 2, 1, 1, 9, 1, 0, 0, 1, 1, 1, 0],
+    [9, 9, 9, 9, 9, 9, 9, 9, 9, 1, 0, 0, 0, 0, 0, 0]
+])
+
+testCasePAPERv2 = np.array([
+    [0, 0, 0, 0, 1, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 1],
+    [0, 0, 1, 1, 2, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9],
+    [0, 0, 2, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9],
+    [0, 0, 2, 9, 9, 9, 9, 9, 9, 9, 2, 1, 3, 9, 9, 9],
+    [0, 0, 1, 9, 9, 9, 9, 9, 9, 9, 2, 0, 1, 9, 9, 9],
+    [1, 1, 1, 9, 9, 9, 9, 9, 9, 9, 2, 0, 1, 1, 2, 1],
+    [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 2, 0, 0, 0, 0, 0],
+    [9, 2, 2, 1, 2, 3, 9, 2, 2, 1, 1, 1, 1, 1, 0, 0],
+    [9, 9, 2, 0, 0, 1, 9, 1, 0, 0, 0, 1, 9, 1, 0, 0],
+    [9, 9, 3, 1, 1, 1, 9, 1, 0, 0, 0, 2, 9, 2, 0, 0],
+    [9, 9, 9, 9, 9, 9, 9, 1, 0, 0, 0, 1, 9, 2, 1, 0],
+    [9, 9, 9, 9, 9, 9, 9, 2, 1, 0, 0, 1, 2, 9, 2, 1],
+    [9, 9, 9, 9, 9, 9, 9, 9, 2, 1, 0, 0, 2, 9, 9, 9],
+    [9, 9, 9, 9, 9, 3, 1, 2, 9, 1, 0, 1, 3, 9, 3, 1],
+    [9, 9, 9, 9, 9, 3, 0, 1, 1, 1, 0, 1, 9, 9, 2, 0],
+    [9, 9, 9, 9, 9, 2, 0, 0, 0, 0, 0, 1, 9, 9, 1, 0]
+])
 def get_test_input():
-    testCaseMines3 = np.array([
-        [0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 1, 1, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0]
-    ])
-
-
-    testCase4 = np.array([
-        [0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 1, 9, 1, 0, 0, 0],
-        [0, 0, 0, 9, 9, 9, 0, 0, 0],
-        [0, 0, 0, 9, 9, 9, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0]
-    ])
-
-    testCase5 = np.array([
-        [0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 1, 9, 1, 0, 0, 0],
-        [0, 0, 9, 9, 9, 0, 0, 0],
-        [0, 0, 9, 9, 9, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0]
-    ])
-
-    testCase6 = np.array([
-        [0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 1, 9, 1, 0, 0, 0],
-        [0, 0, 0, 9, 9, 9, 0, 0, 0],
-        [0, 0, 0, 9, 9, 9, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0]
-    ])
 
     chosenTestCase = testCase5
 
@@ -69,42 +112,186 @@ def get_test_input():
 
 
     ################# PARTIAL CONTROL INPUT PARSING
-    testCasePAPERv1 = np.array([
-        [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 1, 0],
-        [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 2, 1, 1, 1, 0],
-        [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 1, 0, 0, 0, 0],
-        [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 1, 1, 0, 1, 1],
-        [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 2, 1, 2, 9],
-        [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9],
-        [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9],
-        [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9],
-        [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9],
-        [9, 9, 9, 9, 9, 9, 9, 9, 9, 2, 1, 2, 9, 9, 9, 9],
-        [9, 9, 9, 9, 9, 9, 1, 1, 1, 1, 0, 2, 9, 4, 2, 1],
-        [9, 9, 9, 9, 9, 9, 1, 0, 0, 0, 0, 1, 1, 1, 0, 0],
-        [9, 9, 2, 2, 3, 2, 1, 0, 0, 0, 0, 0, 1, 1, 1, 0],
-        [9, 9, 1, 0, 0, 0, 0, 1, 1, 1, 0, 0, 1, 9, 1, 0],
-        [9, 9, 3, 3, 3, 2, 1, 1, 9, 1, 0, 0, 1, 1, 1, 0],
-        [9, 9, 9, 9, 9, 9, 9, 9, 9, 1, 0, 0, 0, 0, 0, 0]
-    ])
 
-    testCasePAPERv2 = np.array([
-        [0, 0, 0, 0, 1, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 1],
-        [0, 0, 1, 1, 2, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9],
-        [0, 0, 2, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9],
-        [0, 0, 2, 9, 9, 9, 9, 9, 9, 9, 2, 1, 3, 9, 9, 9],
-        [0, 0, 1, 9, 9, 9, 9, 9, 9, 9, 2, 0, 1, 9, 9, 9],
-        [1, 1, 1, 9, 9, 9, 9, 9, 9, 9, 2, 0, 1, 1, 2, 1],
-        [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 2, 0, 0, 0, 0, 0],
-        [9, 2, 2, 1, 2, 3, 9, 2, 2, 1, 1, 1, 1, 1, 0, 0],
-        [9, 9, 2, 0, 0, 1, 9, 1, 0, 0, 0, 1, 9, 1, 0, 0],
-        [9, 9, 3, 1, 1, 1, 9, 1, 0, 0, 0, 2, 9, 2, 0, 0],
-        [9, 9, 9, 9, 9, 9, 9, 1, 0, 0, 0, 1, 9, 2, 1, 0],
-        [9, 9, 9, 9, 9, 9, 9, 2, 1, 0, 0, 1, 2, 9, 2, 1],
-        [9, 9, 9, 9, 9, 9, 9, 9, 2, 1, 0, 0, 2, 9, 9, 9],
-        [9, 9, 9, 9, 9, 3, 1, 2, 9, 1, 0, 1, 3, 9, 3, 1],
-        [9, 9, 9, 9, 9, 3, 0, 1, 1, 1, 0, 1, 9, 9, 2, 0],
-        [9, 9, 9, 9, 9, 2, 0, 0, 0, 0, 0, 1, 9, 9, 1, 0]
-    ])
+    return testCasePAPERv2
 
-    return testCasePAPERv1
+
+# database things we need:
+# 1. get all attempts
+# 2. get one specific attempt by some ID (presumably by the same ID the website and database uses)
+# 3. get a random attempt (maybe?.. just for fun.. probs wont use.)
+
+# consideration: will we ever connect directly to the database to get things?
+# probably not.. there's no need for experimentation. we just need a local dataset to test-run statistics,
+# and when we do the big "final" statitsics run, we will just download the whole dataset manually.
+
+def get_all_database_content():
+    with open("testData.json") as f:
+        jayson = json.load(f)
+        return jayson
+
+def get_database_entry(userIDpriv, timestamp, seed): # note: IDpriv, timestamp, seed makes up our internal primary key for user submissions.
+    database_data = get_all_database_content()
+
+    for submission in database_data:
+        if submission["userIDpriv"] == userIDpriv and submission["timestamp"] == timestamp and submission["seed"] == seed:
+            return submission
+
+def mine_generate(fieldWidth, fieldHeight, mineCount, seed):
+    with open("seedRenders.json") as f:
+        jayson = json.load(f)
+        return np.array(jayson[str(seed)])
+
+# gave up on directly recreating mines.. I'm making a node.js script instead because js does floats and float bitwise operations wierdly and jumping to javascript and importing it into python is easier
+# def mine_generate(fieldWidth, fieldHeight, mineCount, seed):
+#     # NOTE: see how the javascript variant does it as reference for python implementation
+#     """
+#     let seedIter = mineSeed
+# 
+#     let game = []
+#     for (let _ = 0; _ < fieldHeight; _++) game.push(Array(fieldWidth).fill(0));
+# 
+#     for (let _ = 0; _ < mineCount; _++) {
+#         const randProb = (seedIter = seedIter * 16807 % 2147483647) / 2147483646;
+#         const mineIndex = Math.round((fieldWidth*fieldHeight-1) * randProb)
+#         const y = mineIndex % fieldWidth, x = Math.round(mineIndex / fieldHeight)
+#         // console.log("indexes:", x, y);
+#         if (game[y][x] == 0) game[y][x] = 1;
+#         else _ -= 1
+#     }30-3
+# 
+#     return [game, mineSeed];
+#     """
+#     
+#     seedIter = seed
+#     game = np.zeros((fieldHeight, fieldWidth))
+# 
+#     mN = 0 # mN is number of mines placed so far
+#     while mN < mineCount:
+#         seedIter = (seedIter * 16807) & 2147483647.0
+# 
+#         randProb = seedIter / 2147483646
+#         mineIndex = round((fieldWidth*fieldHeight-1) * randProb)
+# 
+#         print("on randProb", randProb)
+#         y = mineIndex % fieldWidth
+#         x  = mineIndex // fieldHeight
+# 
+#         if game[y, x] == 0:
+#             game[y, x] = 1
+#             mN += 1
+# 
+#     return game
+
+def board_generate(fieldWidth, fieldHeight, mineCount, seed):
+    minesLayout = mine_generate(fieldWidth, fieldHeight, mineCount, seed)
+
+    kernel = [[1, 1, 1], [1, 1, 1], [1, 1, 1]]
+    hints = convolve2d(minesLayout, kernel, "same")
+
+    hints[minesLayout==1] = -1 # mask minesLayout ontop of the hints using 9 as the mine indicator
+    return hints
+    # return testCasePAPERv1
+
+def reveal_cell(progressing_board, uncovered_board, cellX, cellY):
+    # print("revealing", cellX, cellY)
+
+    progressing_board[cellY, cellX] = uncovered_board[cellY, cellX]
+    if progressing_board[cellY, cellX] == 0:
+        zero_propogate(progressing_board, uncovered_board, cellX, cellY)
+
+def zero_propogate(progressing_board, uncovered_board, cellX, cellY):
+    for neighY in range(cellY-1, cellY+2):
+        for neighX in range(cellX-1, cellX+2):
+            if (neighX != cellX or neighY != cellY) and neighX >= 0 and neighX < uncovered_board.shape[1] and neighY >= 0 and neighY < uncovered_board.shape[0]:
+                if progressing_board[neighY, neighX] == 9: # if is hidden..
+                    reveal_cell(progressing_board, uncovered_board, neighX, neighY)
+
+def chord(progressing_board, uncovered_board, cellX, cellY):
+    # HACK: the frontend validates chords so they can only be attempted if count(neighbourFlags)==hint. this means we can assume each chord either has the exact correct flags, or doesnt (if we didnt have client-side validation, then the user could trigger a chord with more flags than empty spaces, which would give us ambiguity and would make validating this much more annoying right now.
+    for neighY in range(cellY-1, cellY+2):
+        for neighX in range(cellX-1, cellX+2):
+            if (neighX != cellX or neighY != cellY) and neighX >= 0 and neighX < uncovered_board.shape[1] and neighY >= 0 and neighY < uncovered_board.shape[0]:
+                if uncovered_board[neighY, neighX] != -1: # if not a mine.. (also.. see above HACK)
+                    reveal_cell(progressing_board, uncovered_board, neighX, neighY)
+
+# steps=0 returns the unattempted board. steps=1 will have one step applied, etc.
+# note that we want this to give us in a form that solverAlgs likes. that is - 0-9 for hints and 9 for a hidden cell.
+# problem: what happens when a mine appears? I'm going to need to represent it..
+# for now.. I'll just make it -1 , and hope it shouldnt ever be a problem because solverAlgs shouldnt ever get run on a field with a mine, because at that point the game is over and there is no subsequent move.
+def resimulate_partial_submission(submission, steps):
+    # note.. what am I going to make this method do? it will contain just hints and mines.
+    # that will be 0-9 for hints, and probablly also -1 for mines.
+    uncovered_board = board_generate(9, 9, 10, submission["seed"]) # assumed 9x9 field with 10 mines; HACK: submission seed should be float if we were doing a real RNG, but because of javascript flaot wierdness we're using a string
+    progressing_board = np.full(uncovered_board.shape, 9)
+
+    i = 0
+    for action in submission["actionRecords"]:
+        if i == steps: break
+        if not action["successful"]:
+            print("unsuccessful")
+            continue
+        i+= 1
+
+        actionX, actionY = action["x"], action["y"]
+
+        # print("progressing_board:")
+        # print(progressing_board)
+
+        match action["actionID"]:
+            case 0: # left click (pimary action) / opens a cell.
+                print("left click", actionX, actionY)
+                progressing_board[actionY, actionX] = uncovered_board[actionY, actionX] # copy the hint from the source of truth into the current board state.
+                reveal_cell(progressing_board, uncovered_board, actionX, actionY)
+            case 1: # right click (secondary action) / either toggles flag or triggers a chord
+                # if flag action then ignore.. otherwise trigger chord. remember actions are guaranteed successfull. if the cell was opened, then it's certainly a chord action.
+                if progressing_board[actionY, actionX] != 9:
+                    print("rc chord", actionX, actionY)
+                    chord(progressing_board, uncovered_board, actionX, actionY)
+                else:
+                    print("flag", actionX, actionY)
+            case 2: # dedicated chord action via left+right click
+                print("chord init", actionX, actionY)
+                chord(progressing_board, uncovered_board, actionX, actionY)
+            case 3: # actionID 3 is restart button clicked down
+                print("reset start")
+                break # game is over.. nothing else for us to do..
+            case 4: # actionID 4 is restart button click released
+                print("reset done")
+                break # game is over.. nothing else for us to do..
+
+    return progressing_board
+
+if __name__ == "__main__": # running as main will run random testing/debug stuff
+    # testEntry = get_database_entry("6094896675755.898", "1769177501821", "1769089891879")
+    testEntry = get_database_entry("7478532506737.593", "1770053639277", "1769089890391")
+    print(testEntry)
+
+    print("DA BOARD")
+    print(board_generate(9, 9, 10, testEntry["seed"]))
+
+    print(testEntry["actionRecords"])
+    for i in range(len(testEntry["actionRecords"])+1): # i is an index, but resimulate takes a count
+        print(f"the game after {i} moves:")
+
+        current_board = resimulate_partial_submission(testEntry, i)
+        # for row in current_board:
+        #     for num in row:
+        #         print(num, end="")
+        #     print()
+        print()
+
+
+        domain = minesweeperModel.create_domains(current_board)
+        constraints, variableToConstraints, constraintsToVariables = minesweeperModel.build_constraints(current_board, domain)
+
+        domain = solverAlgs.generalizedArcConsistency(domain, constraints, variableToConstraints, constraintsToVariables, current_board)
+
+        minesweeperModel.renderDomains(domain, current_board)
+        # for row in current_board:
+        #     print(row)
+
+        # print()
+        # print()
+
+    # print(board_generate(9, 9, 10, testEntry["seed"]))
