@@ -36,7 +36,12 @@ def renderDomains(domains, hints):
     hcolYELLOW = '\033[43m'
     hbcolYELLOW = '\033[43;5m'
 
+    colUNDERLINE = '\033[4m'
+
+    print(colUNDERLINE + " |012345678" + colRESTORE)
+
     for y, row in enumerate(hints):
+        print(f"{y}|", end="")
         for x, cell in enumerate(row):
             if domains[(x, y)] == [True, True]:
                 print(hcolGRAY + "?", end=colRESTORE)
@@ -48,7 +53,7 @@ def renderDomains(domains, hints):
                 print(["", colBLUE, colGREEN, colYELLOW, "", "", "", "", "", hcolBLUE][hints[y, x]], end="")
                 print(hints[y, x], end=colRESTORE)
             else:
-                print(celRED + "Q", end=colRESTORE)
+                print(colRED + "Q", end=colRESTORE)
         print()
 
 def phaseRenderDomains(domainsArr, hints):
