@@ -151,7 +151,7 @@ export function mineGen(fieldWidth, fieldHeight, mineCount, mineSeed=undefined) 
         // console.log("indexes:", x, y);
         if (game[y][x] == 0) game[y][x] = 1;
         else _ -= 1
-    }30-3
+    }
 
     return [game, mineSeed];
 }
