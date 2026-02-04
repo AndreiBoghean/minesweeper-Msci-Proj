@@ -57,37 +57,45 @@ reverse_seed_3bv_lookup = {
 things we will be wanting to do here:
 
 make a distribution of submissions w.r.t. people -- ALSO: break the bar into successful,unsuccessful.
-distribution of average solve times w.r.t. different FIELDS
-distribution of average solve times w.r.t. different FIELDS for SPECIFIC PEOPLE
-NEW: distribution of submissions per field seed
-
-consider:
-average time or percentage to failure?
+distribution of average solve times w.r.t. different FIELDS (now shown as 3bv)
+distribution of average solve times w.r.t. different FIELDS for SPECIFIC PEOPLE (3bv on x)
+NEW: distribution of submissions per field seed (3bv on x)
 
 also need some stuff to look at learning effects...
-plot of solve times as attempt counts increase, with multiple plots for multiple people, for A SPECIFIC FIELD
+plot of solve times as attempt counts increase, with multiple plots for multiple people, for A SPECIFIC FIELD (seed → 3bv in title)
 
 ^ learning effects problem: learning effects aggregate within a "session", and then across different days people may partially forget their leraning effects?
 
 """
 
 
-######################################################### STUFF NOT USING CONSTAINT SOLVER.. JUST SURFACE LEVEL STATISTICS
+######################################################### STUFF NOT USING CONSTRAINT SOLVER.. JUST SURFACE LEVEL STATISTICS
 
 database_entries = inputHandler.get_all_database_content()
-# testEntry = inputHandler.get_database_entry("7478532506737.593", "1770053639277", "1769089890391")
-# print(testEntry)
+
+# Build userIDpriv → userIDpub mapping once
+all_users = list(set([entry["userIDpriv"] for entry in database_entries]))
+userPRIV_to_pub = {}
+for neededID in all_users:
+    for entry in database_entries:
+        if entry["userIDpriv"] == neededID:
+            userPRIV_to_pub[neededID] = entry["userIDpub"]
+            break
+
 
 # THING 1.
 def plot_submissions_per_person(database_entries):
     """
-    Bar chart: number of submissions per person (userIDpub).
+    Bar chart: number of submissions per person (userIDpub on plot, userIDpriv internally).
     """
-    user_ids = [entry["userIDpub"] for entry in database_entries]
+    user_ids = [entry["userIDpriv"] for entry in database_entries]
     unique_users, counts = np.unique(user_ids, return_counts=True)
 
+    # Map priv IDs to pub names for labels
+    labels = [userPRIV_to_pub[u] for u in unique_users]
+
     plt.figure(figsize=(10, 6))
-    plt.bar(unique_users, counts, color="skyblue", edgecolor="black")
+    plt.bar(labels, counts, color="skyblue", edgecolor="black")
     plt.xlabel("User")
     plt.ylabel("Number of submissions")
     plt.title("Distribution of submissions per person")
@@ -95,50 +103,66 @@ def plot_submissions_per_person(database_entries):
     plt.tight_layout()
     plt.show(block=False)
 
+
 def plot_submissions_per_userAGENT(database_entries):
     """
-    Bar chart: number of submissions per person (userIDpub).
+    Bar chart: number of submissions per userAgent.
     """
-    user_ids = [entry["userAgent"] for entry in database_entries]
-    unique_users, counts = np.unique(user_ids, return_counts=True)
+    user_agents = [entry["userAgent"] for entry in database_entries]
+    unique_agents, counts = np.unique(user_agents, return_counts=True)
 
     plt.figure(figsize=(10, 6))
-    plt.bar(unique_users, counts, color="skyblue", edgecolor="black")
+    plt.bar(unique_agents, counts, color="skyblue", edgecolor="black")
     plt.xlabel("UserAgent")
     plt.ylabel("Number of submissions")
-    plt.title("Distribution of submissions per person")
+    plt.title("Distribution of submissions per userAgent")
     plt.xticks(rotation=45, ha="right")
     plt.tight_layout()
     plt.show(block=False)
 
-def plot_submissions_per_seeds(database_entries):
+
+def plot_submissions_per_field_3bv(database_entries):
     """
-    Bar chart: number of submissions per field (seed).
+    Bar chart: number of submissions per field (x axis = 3bv, via seed_3bv_lookup).
     """
-    fields = [entry["seed"] for entry in database_entries]
+    fields = []
+    for entry in database_entries:
+        seed = entry.get("seed")
+        if seed is None:
+            continue
+        try:
+            threebv = seed_3bv_lookup[seed]
+            fields.append(threebv)
+        except KeyError:
+            continue
+
+    if not fields:
+        print("No valid fields (3bv) found for submissions per field.")
+        return
+
     unique_fields, counts = np.unique(fields, return_counts=True)
 
     plt.figure(figsize=(10, 6))
     plt.bar(unique_fields, counts, color="orange", edgecolor="black")
-    plt.xlabel("User")
+    plt.xlabel("Field (3bv)")
     plt.ylabel("Number of submissions")
-    plt.title("Distribution of submissions per field")
-    plt.xticks(rotation=45, ha="right")
+    plt.title("Distribution of submissions per field (3bv)")
+    plt.xticks(ticks=unique_fields, labels=unique_fields)
     plt.tight_layout()
     plt.show(block=False)
 
 
 plot_submissions_per_person(database_entries)
 plot_submissions_per_userAGENT(database_entries)
-plot_submissions_per_seeds(database_entries)
+plot_submissions_per_field_3bv(database_entries)
 
 
 # THING 2.
 def plot_avg_solve_time_per_field(database_entries):
     """
-    Bar chart: average solve time (duration) per field (e.g., threebv).
+    Bar chart: average solve time (duration) per field (x axis = 3bv, via seed_3bv_lookup).
+    Only successful runs are considered.
     """
-    # Convert durations to floats and group by field
     durations = []
     fields = []
 
@@ -146,50 +170,45 @@ def plot_avg_solve_time_per_field(database_entries):
         try:
             if not entry["successful"]:
                 continue
-
-            dur = float(entry["duration"])/1000
-            fld = entry["seed"]
+            dur = float(entry["duration"]) / 1000
+            seed = entry["seed"]
+            threebv = seed_3bv_lookup[seed]
             durations.append(dur)
-            fields.append(fld)
-        except (KeyError, ValueError):
+            fields.append(threebv)
+        except (KeyError, ValueError, KeyError):
             continue
 
     if not durations:
         print("No valid durations found.")
         return
 
-    # Convert to numpy arrays
     durations = np.array(durations)
     fields = np.array(fields)
 
     unique_fields, idx = np.unique(fields, return_inverse=True)
-    unique_seeds = [seed_3bv_lookup[str(f)] for f in unique_fields]
     avg_times = [durations[idx == i].mean() for i in range(len(unique_fields))]
 
     plt.figure(figsize=(10, 6))
-
     plt.grid(axis="y")
-
-    plt.bar(unique_seeds, avg_times, color="lightcoral", edgecolor="black")
-    plt.xticks(ticks=unique_seeds, labels=unique_seeds)
+    plt.bar(unique_fields, avg_times, color="lightcoral", edgecolor="black")
+    plt.xticks(ticks=unique_fields, labels=unique_fields)
     plt.yticks(ticks=np.arange(0, 85, step=2.5))
-
-
-    plt.xlabel("Field (e.g., threebv)")
+    plt.xlabel("Field (3bv)")
     plt.ylabel("Average solve time (s)")
-    plt.title("Average solve time per field")
-    plt.xticks(rotation=45)
+    plt.title("Average solve time per field (3bv)")
     plt.tight_layout()
     plt.show(block=False)
 
+
 plot_avg_solve_time_per_field(database_entries)
 
-# THING 3.
-def plot_avg_solve_time_per_field_per_person(database_entries, target_users, userIDENTs):
-    """
-    Bar chart for each target user: average solve time per field.
-    """
 
+# THING 3.
+def plot_avg_solve_time_per_field_per_person(database_entries, target_users, userPRIV_to_pub):
+    """
+    Bar chart for each target user: average solve time per field (x axis = 3bv).
+    Uses userIDpriv internally, userIDpub for plot label.
+    """
     for user in target_users:
         durations = []
         fields = []
@@ -198,11 +217,12 @@ def plot_avg_solve_time_per_field_per_person(database_entries, target_users, use
             if entry["userIDpriv"] != user:
                 continue
             try:
-                dur = float(entry["duration"])/1000
-                fld = entry["seed"]
+                dur = float(entry["duration"]) / 1000
+                seed = entry["seed"]
+                threebv = seed_3bv_lookup[seed]
                 durations.append(dur)
-                fields.append(fld)
-            except (KeyError, ValueError):
+                fields.append(threebv)
+            except (KeyError, ValueError, KeyError):
                 continue
 
         if not durations:
@@ -217,25 +237,19 @@ def plot_avg_solve_time_per_field_per_person(database_entries, target_users, use
 
         plt.figure(figsize=(8, 5))
         plt.bar(unique_fields, avg_times, color="mediumpurple", edgecolor="black")
-        plt.xlabel("Field (e.g., threebv)")
+        plt.xticks(ticks=unique_fields, labels=unique_fields)
+        plt.xlabel("Field (3bv)")
         plt.ylabel("Average solve time (s)")
-        plt.title(f"Average solve time per field – {userIDENTs[user]}")
-        plt.xticks(rotation=45)
+        plt.title(f"Average solve time per field – {userPRIV_to_pub[user]}")
         plt.tight_layout()
         plt.show(block=False)
 
-all_users = list(set([entry["userIDpriv"] for entry in database_entries]))
-userPRIV_to_pub = {}
-for neededID in all_users:
-    for entry in database_entries:
-        if entry["userIDpriv"] == neededID:
-            userPRIV_to_pub[neededID] = entry["userIDpub"]
-            break
 
 test_users = [key for key, val in userPRIV_to_pub.items() if val in ["andreiBrowser", "Duncan"]]
 print(f"{all_users=}")
 print(f"{test_users=}")
 plot_avg_solve_time_per_field_per_person(database_entries, test_users, userPRIV_to_pub)
+
 
 # THING 4.
 def plot_learning_curve_per_person_per_field(
@@ -248,7 +262,15 @@ def plot_learning_curve_per_person_per_field(
     """
     For each target user, plot solve time vs attempt number (within a specific field),
     showing learning effects over attempts.
+    Uses userIDpriv internally, userIDpub for legend label.
+    Field value is seed; title shows corresponding 3bv.
     """
+    seed = field_value
+    try:
+        threebv = seed_3bv_lookup[seed]
+    except KeyError:
+        print(f"Seed {seed} not in seed_3bv_lookup.")
+        return
 
     plt.figure(figsize=(8, 5))
 
@@ -257,11 +279,11 @@ def plot_learning_curve_per_person_per_field(
             e
             for e in database_entries
             if e["userIDpriv"] == user
-            and str(e.get("seed", "")) == str(field_value)
+            and str(e.get("seed", "")) == str(seed)
         ]
 
         if len(entries) < min_attempts:
-            print(f"Skipping {user}: only {len(entries)} attempts for field {field_value}.")
+            print(f"Skipping {user}: only {len(entries)} attempts for field {seed}.")
             continue
 
         # Sort by timestamp
@@ -270,12 +292,11 @@ def plot_learning_curve_per_person_per_field(
         durations = [float(x["duration"]) for x in entries]
         attempts = list(range(1, len(durations) + 1))
 
-        # plt.plot(attempts, durations, marker="o", linestyle="-", color="darkgreen", label=f"{userPRIV_to_pub[user]}")
         plt.plot(attempts, durations, linestyle="-", label=f"{userPRIV_to_pub[user]}")
 
     plt.xlabel("Attempt number")
     plt.ylabel("Solve time (ms)")
-    plt.title(f"Learning curves of different users for seed {field_value})")
+    plt.title(f"Learning curves of different users for field {threebv} (seed {seed})")
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
     plt.legend()
@@ -286,11 +307,10 @@ chosen_seed = reverse_seed_3bv_lookup[13]
 plot_learning_curve_per_person_per_field(database_entries, all_users, chosen_seed, userPRIV_to_pub, min_attempts=1)
 
 
-
-
 plt.pause(0.001)
 input("Press [enter] to continue.")
 exit()
+
 
 
 
