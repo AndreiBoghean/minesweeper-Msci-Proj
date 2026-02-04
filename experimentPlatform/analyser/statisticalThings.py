@@ -76,11 +76,12 @@ database_entries = inputHandler.get_all_database_content()
 # Build userIDpriv → userIDpub mapping once
 all_users = list(set([entry["userIDpriv"] for entry in database_entries]))
 userPRIV_to_pub = {}
-for neededID in all_users:
+for neededID in all_users[::-1]:
+    userPRIV_to_pub[neededID] = f"undef:{neededID}"
     for entry in database_entries:
         if entry["userIDpriv"] == neededID:
             userPRIV_to_pub[neededID] = entry["userIDpub"]
-            break
+            # break # actually.. dont break, so that the last public username is used instead of the first one found.
 
 
 # THING 1.
@@ -245,7 +246,7 @@ def plot_avg_solve_time_per_field_per_person(database_entries, target_users, use
         plt.show(block=False)
 
 
-test_users = [key for key, val in userPRIV_to_pub.items() if val in ["andreiBrowser", "Duncan"]]
+test_users = [key for key, val in userPRIV_to_pub.items() if val in ["andreiBrowser", "Duncan", "Alpaca"]]
 print(f"{all_users=}")
 print(f"{test_users=}")
 plot_avg_solve_time_per_field_per_person(database_entries, test_users, userPRIV_to_pub)
