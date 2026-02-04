@@ -304,8 +304,9 @@ def plot_learning_curve_per_person_per_field(
     plt.show(block=False)
 
 
-chosen_seed = reverse_seed_3bv_lookup[13]
-plot_learning_curve_per_person_per_field(database_entries, all_users, chosen_seed, userPRIV_to_pub, min_attempts=1)
+for sd in [13]: # [10, 13, 22, 35, 40]:
+    chosen_seed = reverse_seed_3bv_lookup[sd]
+    plot_learning_curve_per_person_per_field(database_entries, all_users, chosen_seed, userPRIV_to_pub, min_attempts=1)
 
 
 plt.pause(0.001)
