@@ -92,64 +92,105 @@ def generalizedArcConsistency(domains, constraints, variableToConstraints, const
 
     return newDomains
 
+def relationalArcConsistency(domains, constraints, variableToConstraints, constraintsToVariables, hints, i=1, m=1):
+    # helper func
+    def consistencyCheck(testableLabel, victimVariable, supportVariables, constraint):
+        # print(f"conistency check on {testableLabel=}, {victimVariable=}, {supportVariables=}, {constraint=}")
+        for acceptedAssignment in constraints[constraint]:
+            # print("checking assignment", acceptedAssignment)
+            if acceptedAssignment[victimVariable] != testableLabel:
+                continue
+
+            # check that the current assignment is valid under the current restricted domain
+            supportable = True
+            for supVar in supportVariables:
+                requiredLabel = acceptedAssignment[supVar] # get the label that this assignment requires for this variable
+                if not domains[supVar][requiredLabel]:
+                    supportable = False
+                    # print(f"not supportable since {supVar} doesnt have label {requiredLabel}")
+                    break
+
+            if supportable: return True
+
+        return False;
 
 
+    newDomains = copy.deepcopy(domains) # make sure we dont modify the original domains.. otherwise we accidentally solve too much.
 
 
+    # ATTEMPT TWO: I'm now modifying attempt ONE to look like Rina Dechter's specification of RELATIONAL-CONSISTENCT(R, i, m) as outlined in their constraint processing textbook.
+    # whenever I'm referencing that implementation, I'll simply say RC(i, m) or something along those lines
 
+    # first we build "m relations R_{S_1}, ..., R_{S_m} \in Q" as specified by line 3 of RC
+    relations_masks = minesweeperModel.spot_pick([False]*len(constraints), 0, m) # out of all relations, pick m different relations. (0 just means start from the leftmost.. just there since this is a recursive algorithm)
+    relations_todos = [[i for i in range(len(constraints)) if relation_mask[i]] for relation_mask in relations_masks] # ayys is a set containing every subset A of size i in the Rs selection (i.e. it's the second half of line 3 of RC)
 
+    for relation_selection in relations_todos: # finally carry out line 3 part 1.. that is.. "for every m relations R_S_{1}, ..., R_S_{m} \in Q ... do other stuff"
 
+        # now, for line 3 part 2,
+        # we need to build a subset A of size i, subject to "A \subseteq foldl_union[S_j for x in range(m)]"
+        # my logical anchor is that, for i=1 m=1, this simply goes to todoables[0] (where todoables should only be one item since m=1)
 
+        all_relation_variables = []
+        for relation in relation_selection:
+            all_relation_variables.extend(constraintsToVariables[relation])
+        all_relation_variables = list(set(all_relation_variables))
 
+        relVars_masks = minesweeperModel.spot_pick([False]*len(all_relation_variables), 0, i) # out of the m options in the current relation selection, pick i spots. (0 just means start from the leftmost.. just there since this is a recursive algorithm)
+        ayys = [[var for i, var in enumerate(all_relation_variables) if relVars_mask[i]] for relVars_mask in relVars_masks] # ayys is a set containing every subset A of size i in the Rs selection (i.e. it's the second half of line 3 of RC)
+        # ^ reminder number 4 of the fact that ayys is the set of all subsets A of size i containing stuff. idk. just see line 3 part 2 from the book.
 
+        for ayy in ayys:
+            # technically, with i=1 and m=1, if we run this algorithm like we were doing before with GAC,
+            # then at this point we should be given a single todox and todoc, much like our GAC attempt.
 
+            todoX = ayy[0]
+            todoc = relation_selection[0]
 
+            #GAC line 5
+            # this line calculates the inverse of A w.r.t. 
+            todoYs = [otherVar for otherVar in constraintsToVariables[todoc] if otherVar != todoX]
+            # print("for", todoables, "we get Ys", todoYs)
 
+            # GAC line 6 and 7
+            """
+            for this step we need all the labels on todoX which have a support across variables todoYs,
+            according to constraint todoc.
+            """
+            acceptedLabels = [] # NOTE: variable naming: "accepted labels" actually just means variable domains re-adusted according to what labels are arc consistent
+            for xLabelI in range(len(domains[todoX])):
+                if domains[todoX][xLabelI] and consistencyCheck(xLabelI, todoX, todoYs, todoc): # if the label is still enabled in the domain, and the label meets the consistency check..
+                    acceptedLabels.append(True) # record the variable as supported
+                else:
+                    acceptedLabels.append(False) # record the label as not supported
 
+            # GAC line 8
+            # if acceptedLabels != domains[todoX]:
+            if acceptedLabels != domains[todoX] and acceptedLabels != newDomains[todoX]: # modification to the original algorithm: check the "discovery" we just made hasnt already been made (it it had been, then it'd already be in newDomains)
+                # GAC line 9
+                """
+                for this step we need every variable Z such that Z is connected to X as a neighbour through a constraint c'
+                ^ subject to c' != c and Z != X
+                """
+                # TODO: port over this optimisation.
+                # for cP in variableToConstraints[todoX]: # for each constraint connected to X
+                #     for todoY in constraintsToVariables[cP]: # for each variable connected to that constraint
+                #         if todoY != todoX and cP != todoc:
+                #             todo.add((todoY, cP))
 
-############# OLD RAMBLINGS WE BURRY AND FORGET:
+                # GAC line 10
+                # domains[todoX] = acceptedLabels
+                newDomains[todoX] = acceptedLabels
 
+                # print(f"domains changed! on {todoX}: {domains[todoX]} went to {acceptedLabels}")
+                # print("new domains:")
+                # print(domains)
+                # minesweeperModel.renderDomains(newDomains, hints)
+                # print()
 
+            # print("new todo:")
+            # print(todo)
+            # print()
+            # print()
 
-"""
-remember - AC3,4 only operates over binary constraints.
-we've implemented this model directly with multi-varaible constraints (specifically, constraints with 8 variables, each of its neighbours)
-
-so for any first start we need to go directly into generalized arc consistency.
-"""
-
-# GAC pseudocode translation attempt
-""" MAIN ALGORITHM:
-
-pick a cell, and pick a label on that cell e.g. cell is mine:
-    for each constraint using that cell that supports the chosen label (i.e. supports that cell is mine):
-        for each alternative labeling set within the context of that constraint
-        ^^^ i.e. with that mine marked, consider all the other possible combinations (<-- for neighbours..) where those combinations also have the same cell marked as a mine
-            for each cell and labelling in the combination..
-                
-
-"""
-
-""" SETUP ALGORITHM (for some reason the paper explains the set up after the core..
-for each node:
-    1. initialise the node's labels (i.e. mine or not mine)
-    2. and then..
-    for each constraint involved with the node:
-        for each node involved in this constraint:
-            for each label that node can take:
-                1. initialise an empty list
-                2. for each possible p-uple for the aforementioned constraint, with the aforementioned node label..
-                    create an arbitrary node N, in the collection of p-uples with this specific node,label,relation S_jbr
-
-
-for each cell c1
-    initialise labels with mine, noMine
-    for each constraint r1 on the cell c1:
-        for each cell c2 constrainted by r1:
-            1. initialise empty list
-            2. for each p-uple in the input:
-                1. let r2 be the corresponding constraint to the puple
-                2. for each entry (cell, label) in the puple:
-                    
-
-"""
+    return newDomains
