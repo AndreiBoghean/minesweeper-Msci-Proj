@@ -92,6 +92,8 @@ def generalizedArcConsistency(domains, constraints, variableToConstraints, const
 
     return newDomains
 
+############ TODO: LOOK DOWN HERE VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV
+
 def relationalArcConsistency(domains, constraints, variableToConstraints, constraintsToVariables, hints, i=1, m=1):
     # helper func
     def consistencyCheck(testableLabel, victimVariable, supportVariables, constraint):
@@ -138,59 +140,151 @@ def relationalArcConsistency(domains, constraints, variableToConstraints, constr
 
         relVars_masks = minesweeperModel.spot_pick([False]*len(all_relation_variables), 0, i) # out of the m options in the current relation selection, pick i spots. (0 just means start from the leftmost.. just there since this is a recursive algorithm)
         ayys = [[var for i, var in enumerate(all_relation_variables) if relVars_mask[i]] for relVars_mask in relVars_masks] # ayys is a set containing every subset A of size i in the Rs selection (i.e. it's the second half of line 3 of RC)
+        nAyys = [[var for i, var in enumerate(all_relation_variables) if not relVars_mask[i]] for relVars_mask in relVars_masks] # simply the inverse of the As
         # ^ reminder number 4 of the fact that ayys is the set of all subsets A of size i containing stuff. idk. just see line 3 part 2 from the book.
 
-        for ayy in ayys:
+        for ayy, nayy in zip(ayys, nAyys):
             # technically, with i=1 and m=1, if we run this algorithm like we were doing before with GAC,
             # then at this point we should be given a single todox and todoc, much like our GAC attempt.
 
-            todoX = ayy[0]
-            todoc = relation_selection[0]
+            # todoX = ayy[0]
+            # todoc = relation_selection[0]
 
             #GAC line 5
             # this line calculates the inverse of A w.r.t. 
-            todoYs = [otherVar for otherVar in constraintsToVariables[todoc] if otherVar != todoX]
-            # print("for", todoables, "we get Ys", todoYs)
+            # todoYs = [otherVar for otherVar in constraintsToVariables[todoc] if otherVar != todoX]
+            # todoYs = sorted(todoYs, key=lambda a: (a[0]+a[1]))
+            # nayy = sorted(todoYs, key=lambda a: (a[0]+a[1]))
+            # print(f"{todoYs=}")
+            # print(f"{nayy=}")
+            # print(f"{str(todoYs) == str(nayy)=}")
+            # if (str(todoYs) != str(nayy)):
+            #     print("WHYYYYYY!!!!")
+            #     exit()
+            # print()
 
-            # GAC line 6 and 7
-            """
-            for this step we need all the labels on todoX which have a support across variables todoYs,
-            according to constraint todoc.
-            """
-            acceptedLabels = [] # NOTE: variable naming: "accepted labels" actually just means variable domains re-adusted according to what labels are arc consistent
-            for xLabelI in range(len(domains[todoX])):
-                if domains[todoX][xLabelI] and consistencyCheck(xLabelI, todoX, todoYs, todoc): # if the label is still enabled in the domain, and the label meets the consistency check..
-                    acceptedLabels.append(True) # record the variable as supported
-                else:
-                    acceptedLabels.append(False) # record the label as not supported
+            # within RAC, GAC's todoYs is equiv to our ¬A
+            todoYs = nayy
 
-            # GAC line 8
-            # if acceptedLabels != domains[todoX]:
-            if acceptedLabels != domains[todoX] and acceptedLabels != newDomains[todoX]: # modification to the original algorithm: check the "discovery" we just made hasnt already been made (it it had been, then it'd already be in newDomains)
-                # GAC line 9
+            # basically: for each variable in set A, and for each accepted label,
+            # try it within the context of the wider set {R_S_{1}, ..., R_S_{m}}
+            # and reject the label assignmrnt from A if it doesnt agree with the contex.
+
+            # FIRSTLY, I build the NATURAL JOIN of all relevant relations R_S_{1}, ..., R_S_{m}.
+            # to do this, I collect all the relevant variables into a pool,
+            # and compute every combination of assignments to those variables.
+
+            # SECONDLY, I iterate over every variable in the pool, and look at all the constraints on it.
+            # for each of that constraint, we mask the constraint's variables with our variable set,
+            # and ask it whether it accepts the current assignment we#re considering.
+            #     ^ remember, this is happening for every constraint on every variable :(
+
+
+            # actually scratch all of that. natural join, with no columns in common, degrades to the cartesean product.
+            # for ...
+            def inner_join(R1, R2):
+                # in theory, a relation is a list of accepted assignments over its relevant variables.
+                # "relevant variables" is not actually encoded within the variable.. the variable is just an ID,
+                # and the relation variables and allowed assignments are given under "constraintToVariables" and "constraints".
+
+                # the purpose of this inner join is for working-version relations, that get built up across multiple relations.
+                # so, how to create a working version relation representation?
+                # must remember the variables it operates over.
+
+                R1_domains = copy.deepcopy(constraints[R1]) # a list of assignment sets
+                R1_vars = copy.deepcopy(constraintsToVariables[R1]) # a list of positions on the board
+                R2_domains = copy.deepcopy(constraints[R2]) # a list of assignment sets
+                R2_vars = copy.deepcopy(constraintsToVariables[R2]) # a list of positions on the board
+
+                new_domains = []
+                new_vars = copy.deepcopy(R1_vars)
+
+                mergeable_vars = []
+                for i, R1_var in enumerate(R1_vars):
+                    for j, R2_var in enumerate(R2_vars):
+                        if (R2_var == R1_var):
+                            mergeable_vars.append((i, j)) # if the 2nd variable is the same, mark it for skipping
+                        else:
+                            new_vars.append(R2_var) # otherwise, include it in the variables of the new "constraint"
+                # ^ note that we're assuming R1 vars is fully present in mergeable_vars, and duplicates are only dropped from R2 instead of R1 if they exist.
+                # this assumption is taken because domains/vars associations are parallel lists, and require indices to match.
+
+                for R1_domain in R1_domains:
+                    for R2_domain in R2_domains:
+
+                        new_domain = []
+                        drop_domain = False;
+
+                        for overlap in mergeable_vars:
+                            if R1_vars[overlap[0]] != R2_vars[overlap[1]]:
+                                drop_domain = True
+                                break
+
+                        if drop_domain:
+                            continue
+
+                        # start with the first relation
+                        for i, R1_var in enumerate(R1_vars):
+                            new_domain.append(R1_domain[i])
+
+                        # then the second relation, but exclude columns already present (i.e variables that were added when part of R1)
+                        for i, R2_var in enumerate(R2_vars):
+                            if filter(mergeable_vars, key=lambda t: t[1] == i) != []: # if i isnt unique, skip it.
+                                continue
+
+                            new_domain.append(R2_domain[i])
+
+                        new_domains.append(new_domain)
+
+                return new_domains, new_vars
+
+
+            # TODO: inner join over all relations
+            # relations_natJoin = copy.deepcopy(all_relation_variables)
+            # for support in R_S_{1}:
+            #     for variable in support:
+
+
+            for todoX, todoc in zip(ayy, relation_selection):
+                # GAC line 6 and 7
                 """
-                for this step we need every variable Z such that Z is connected to X as a neighbour through a constraint c'
-                ^ subject to c' != c and Z != X
+                for this step we need all the labels on todoX which have a support across variables todoYs,
+                according to constraint todoc.
                 """
-                # TODO: port over this optimisation.
-                # for cP in variableToConstraints[todoX]: # for each constraint connected to X
-                #     for todoY in constraintsToVariables[cP]: # for each variable connected to that constraint
-                #         if todoY != todoX and cP != todoc:
-                #             todo.add((todoY, cP))
+                acceptedLabels = [] # NOTE: variable naming: "accepted labels" actually just means variable domains re-adusted according to what labels are arc consistent
+                for xLabelI in range(len(domains[todoX])):
+                    if domains[todoX][xLabelI] and consistencyCheck(xLabelI, todoX, todoYs, todoc): # if the label is still enabled in the domain, and the label meets the consistency check..
+                        acceptedLabels.append(True) # record the variable as supported
+                    else:
+                        acceptedLabels.append(False) # record the label as not supported
 
-                # GAC line 10
-                # domains[todoX] = acceptedLabels
-                newDomains[todoX] = acceptedLabels
+                # GAC line 8
+                # if acceptedLabels != domains[todoX]:
+                if acceptedLabels != domains[todoX] and acceptedLabels != newDomains[todoX]: # modification to the original algorithm: check the "discovery" we just made hasnt already been made (it it had been, then it'd already be in newDomains)
+                    # GAC line 9
+                    """
+                    for this step we need every variable Z such that Z is connected to X as a neighbour through a constraint c'
+                    ^ subject to c' != c and Z != X
+                    """
+                    # TODO: port over this optimisation.
+                    # for cP in variableToConstraints[todoX]: # for each constraint connected to X
+                    #     for todoY in constraintsToVariables[cP]: # for each variable connected to that constraint
+                    #         if todoY != todoX and cP != todoc:
+                    #             todo.add((todoY, cP))
 
-                # print(f"domains changed! on {todoX}: {domains[todoX]} went to {acceptedLabels}")
-                # print("new domains:")
-                # print(domains)
-                # minesweeperModel.renderDomains(newDomains, hints)
+                    # GAC line 10
+                    # domains[todoX] = acceptedLabels
+                    newDomains[todoX] = acceptedLabels
+
+                    # print(f"domains changed! on {todoX}: {domains[todoX]} went to {acceptedLabels}")
+                    # print("new domains:")
+                    # print(domains)
+                    # minesweeperModel.renderDomains(newDomains, hints)
+                    # print()
+
+                # print("new todo:")
+                # print(todo)
                 # print()
-
-            # print("new todo:")
-            # print(todo)
-            # print()
-            # print()
+                # print()
 
     return newDomains
