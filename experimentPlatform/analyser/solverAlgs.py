@@ -196,48 +196,66 @@ def relationalArcConsistency(domains, constraints, variableToConstraints, constr
                 R2_domains = copy.deepcopy(constraints[R2]) # a list of assignment sets
                 R2_vars = copy.deepcopy(constraintsToVariables[R2]) # a list of positions on the board
 
+                # print(f"{R1_domains=}")
+                # print(f"{R1_vars=}")
+                # print(f"{R2_domains=}")
+                # print(f"{R2_vars=}")
+
+
                 new_domains = []
                 new_vars = copy.deepcopy(R1_vars)
+                for v in R2_vars:
+                    if v not in new_vars:
+                        new_vars.append(v)
 
                 mergeable_vars = []
                 for i, R1_var in enumerate(R1_vars):
                     for j, R2_var in enumerate(R2_vars):
                         if (R2_var == R1_var):
                             mergeable_vars.append((i, j)) # if the 2nd variable is the same, mark it for skipping
-                        else:
-                            new_vars.append(R2_var) # otherwise, include it in the variables of the new "constraint"
+
                 # ^ note that we're assuming R1 vars is fully present in mergeable_vars, and duplicates are only dropped from R2 instead of R1 if they exist.
                 # this assumption is taken because domains/vars associations are parallel lists, and require indices to match.
 
-                for R1_domain in R1_domains:
-                    for R2_domain in R2_domains:
+                for R1_assignment in R1_domains:
+                    for R2_assignment in R2_domains:
 
-                        new_domain = []
+                        new_assignment = {}
                         drop_domain = False;
 
                         for overlap in mergeable_vars:
-                            if R1_vars[overlap[0]] != R2_vars[overlap[1]]:
+                            common_var_1, common_var_2 = R1_vars[overlap[0]], R2_vars[overlap[1]]
+                            # print(f"is R1_vars[{common_var_1=}]={common_var_1} != R2_vars[{common_var_2=}]={common_var_2}")
+                            if R1_assignment[common_var_1] != R2_assignment[common_var_2]:
                                 drop_domain = True
                                 break
 
                         if drop_domain:
                             continue
 
+
                         # start with the first relation
                         for i, R1_var in enumerate(R1_vars):
-                            new_domain.append(R1_domain[i])
+                            new_assignment[R1_var] = R1_assignment[R1_var]
 
                         # then the second relation, but exclude columns already present (i.e variables that were added when part of R1)
                         for i, R2_var in enumerate(R2_vars):
-                            if filter(mergeable_vars, key=lambda t: t[1] == i) != []: # if i isnt unique, skip it.
-                                continue
+                            new_assignment[R2_var] = R2_assignment[R2_var]
 
-                            new_domain.append(R2_domain[i])
+                        # # start with the first relation
+                        # for i, R1_var in enumerate(R1_vars):
+                        #     new_domain.append(R1_assignment[i])
 
-                        new_domains.append(new_domain)
+                        # # then the second relation, but exclude columns already present (i.e variables that were added when part of R1)
+                        # for i, R2_var in enumerate(R2_vars):
+                        #     if filter(mergeable_vars, key=lambda t: t[1] == i) != []: # if i isnt unique, skip it.
+                        #         continue
+                        # 
+                        #     new_domain.append(R2_assignment[i])
+
+                        new_domains.append(new_assignment)
 
                 return new_domains, new_vars
-
 
             # TODO: inner join over all relations
             # relations_natJoin = copy.deepcopy(all_relation_variables)
@@ -246,6 +264,26 @@ def relationalArcConsistency(domains, constraints, variableToConstraints, constr
 
 
             for todoX, todoc in zip(ayy, relation_selection):
+
+                # # NOTEL sanity check: validating that inner join A, A = A
+                # current_constrs = constraints[todoc]
+                # current_constr_vars = constraintsToVariables[todoc]
+                # new_constrs, new_constr_vars = inner_join(todoc, todoc)
+
+                # print(f"old constrs: {current_constrs}")
+                # print(f"new constrs: {new_constrs}")
+                # print(f"old constrs vars: {current_constr_vars}")
+                # print(f"new constrs vars: {new_constr_vars}")
+                # print()
+
+                # if (current_constrs != new_constrs):
+                #     print("PANIK with constrs")
+                #     exit()
+
+                # if (current_constr_vars != new_constr_vars):
+                #     print("PANIK with constrs_vars")
+                #     exit()
+
                 # GAC line 6 and 7
                 """
                 for this step we need all the labels on todoX which have a support across variables todoYs,
