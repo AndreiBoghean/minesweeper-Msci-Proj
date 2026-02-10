@@ -95,7 +95,7 @@ def generalizedArcConsistency(domains, constraints, variableToConstraints, const
 ############ TODO: LOOK DOWN HERE VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV
 
 def relationalArcConsistency(domains, constraints, variableToConstraints, constraintsToVariables, hints, i=1, m=1):
-    # helper func
+    # helper functions
     def consistencyCheck(testableLabel, victimVariable, supportVariables, constraint):
         # print(f"conistency check on {testableLabel=}, {victimVariable=}, {supportVariables=}, {constraint=}")
         for acceptedAssignment in constraints[constraint]:
@@ -116,6 +116,79 @@ def relationalArcConsistency(domains, constraints, variableToConstraints, constr
 
         return False;
 
+    def inner_join(R1, R2):
+        R1_domains, R1_vars = R1
+        R2_domains, R2_vars = R2
+
+        # in theory, a relation is a list of accepted assignments over its relevant variables.
+        # "relevant variables" is not actually encoded within the variable.. the variable is just an ID,
+        # and the relation variables and allowed assignments are given under "constraintToVariables" and "constraints".
+
+        # the purpose of this inner join is for working-version relations, that get built up across multiple relations.
+        # so, how to create a working version relation representation?
+        # must remember the variables it operates over.
+
+        new_domains = []
+        new_vars = copy.deepcopy(R1_vars)
+        for v in R2_vars:
+            if v not in new_vars:
+                new_vars.append(v)
+
+        mergeable_vars = []
+        for i, R1_var in enumerate(R1_vars):
+            for j, R2_var in enumerate(R2_vars):
+                if (R2_var == R1_var):
+                    mergeable_vars.append((i, j)) # if the 2nd variable is the same, mark it for skipping
+
+        # ^ note that we're assuming R1 vars is fully present in mergeable_vars, and duplicates are only dropped from R2 instead of R1 if they exist.
+        # this assumption is taken because domains/vars associations are parallel lists, and require indices to match.
+
+        for R1_assignment in R1_domains:
+            for R2_assignment in R2_domains:
+
+                new_assignment = {}
+                drop_domain = False;
+
+                for overlap in mergeable_vars:
+                    common_var_1, common_var_2 = R1_vars[overlap[0]], R2_vars[overlap[1]]
+                    # print(f"is R1_vars[{common_var_1=}]={common_var_1} != R2_vars[{common_var_2=}]={common_var_2}")
+                    if R1_assignment[common_var_1] != R2_assignment[common_var_2]:
+                        drop_domain = True
+                        break
+
+                if drop_domain:
+                    continue
+
+
+                # start with the first relation
+                for i, R1_var in enumerate(R1_vars):
+                    new_assignment[R1_var] = R1_assignment[R1_var]
+
+                # then the second relation, but exclude columns already present (i.e variables that were added when part of R1)
+                for i, R2_var in enumerate(R2_vars):
+                    new_assignment[R2_var] = R2_assignment[R2_var]
+
+                # # start with the first relation
+                # for i, R1_var in enumerate(R1_vars):
+                #     new_domain.append(R1_assignment[i])
+
+                # # then the second relation, but exclude columns already present (i.e variables that were added when part of R1)
+                # for i, R2_var in enumerate(R2_vars):
+                #     if filter(mergeable_vars, key=lambda t: t[1] == i) != []: # if i isnt unique, skip it.
+                #         continue
+                # 
+                #     new_domain.append(R2_assignment[i])
+
+                new_domains.append(new_assignment)
+
+        return new_domains, new_vars
+
+    def foldl(accum, func, consumable):
+        if consumable == []: return accum
+
+        new_item = consumable.pop()
+        accum = func(accum, new_item)
+        return foldl(accum, func, consumable)
 
     newDomains = copy.deepcopy(domains) # make sure we dont modify the original domains.. otherwise we accidentally solve too much.
 
@@ -133,17 +206,66 @@ def relationalArcConsistency(domains, constraints, variableToConstraints, constr
         # we need to build a subset A of size i, subject to "A \subseteq foldl_union[S_j for x in range(m)]"
         # my logical anchor is that, for i=1 m=1, this simply goes to todoables[0] (where todoables should only be one item since m=1)
 
-        all_relation_variables = []
-        for relation in relation_selection:
-            all_relation_variables.extend(constraintsToVariables[relation])
-        all_relation_variables = list(set(all_relation_variables))
+        # all_relation_variables = []
+        # for relation in relation_selection:
+        #     all_relation_variables.extend(constraintsToVariables[relation])
+        # all_relation_variables = list(set(all_relation_variables))
+
+
+
+        # TODO: inner join over all relations to get "the context"
+
+
+        # R1_domains = copy.deepcopy(constraints[R1]) # a list of assignment sets
+        # R1_vars = copy.deepcopy(constraintsToVariables[R1]) # a list of positions on the board
+        # R2_domains = copy.deepcopy(constraints[R2]) # a list of assignment sets
+        # R2_vars = copy.deepcopy(constraintsToVariables[R2]) # a list of positions on the board
+
+        # print(f"{R1_domains=}")
+        # print(f"{R1_vars=}")
+        # print(f"{R2_domains=}")
+        # print(f"{R2_vars=}")
+
+        # # NOTEL sanity check: validating that inner join A, A = A
+        # current_constrs = constraints[todoc]
+        # current_constr_vars = constraintsToVariables[todoc]
+        # new_constrs, new_constr_vars = inner_join(todoc, todoc)
+
+        # print(f"old constrs: {current_constrs}")
+        # print(f"new constrs: {new_constrs}")
+        # print(f"old constrs vars: {current_constr_vars}")
+        # print(f"new constrs vars: {new_constr_vars}")
+        # print()
+
+        # if (current_constrs != new_constrs):
+        #     print("PANIK with constrs")
+        #     exit()
+
+        # if (current_constr_vars != new_constr_vars):
+        #     print("PANIK with constrs_vars")
+        #     exit()
+
+        relation_selection_units = [(constraints[relation_ID], constraintsToVariables[relation_ID]) for relation_ID in relation_selection]
+        starter_item = relation_selection_units.pop()
+
+        # print(f"{relation_selection=}")
+        # print(f"{starter_item=} | {relation_selection_units=}")
+
+        all_relation_domains, all_relation_variables = foldl(starter_item, inner_join, relation_selection_units)
+        # print(f"{relation_selection=}")
+        # print(f"{wide_constraint_context=}")
+
+        # print()
+        # print()
+
+
 
         relVars_masks = minesweeperModel.spot_pick([False]*len(all_relation_variables), 0, i) # out of the m options in the current relation selection, pick i spots. (0 just means start from the leftmost.. just there since this is a recursive algorithm)
         ayys = [[var for i, var in enumerate(all_relation_variables) if relVars_mask[i]] for relVars_mask in relVars_masks] # ayys is a set containing every subset A of size i in the Rs selection (i.e. it's the second half of line 3 of RC)
         nAyys = [[var for i, var in enumerate(all_relation_variables) if not relVars_mask[i]] for relVars_mask in relVars_masks] # simply the inverse of the As
         # ^ reminder number 4 of the fact that ayys is the set of all subsets A of size i containing stuff. idk. just see line 3 part 2 from the book.
 
-        for ayy, nayy in zip(ayys, nAyys):
+        for ayy, nayy in zip(ayys, nAyys): # for each subset A..
             # technically, with i=1 and m=1, if we run this algorithm like we were doing before with GAC,
             # then at this point we should be given a single todox and todoc, much like our GAC attempt.
 
@@ -179,110 +301,13 @@ def relationalArcConsistency(domains, constraints, variableToConstraints, constr
             # and ask it whether it accepts the current assignment we#re considering.
             #     ^ remember, this is happening for every constraint on every variable :(
 
-
-            # actually scratch all of that. natural join, with no columns in common, degrades to the cartesean product.
-            # for ...
-            def inner_join(R1, R2):
-                # in theory, a relation is a list of accepted assignments over its relevant variables.
-                # "relevant variables" is not actually encoded within the variable.. the variable is just an ID,
-                # and the relation variables and allowed assignments are given under "constraintToVariables" and "constraints".
-
-                # the purpose of this inner join is for working-version relations, that get built up across multiple relations.
-                # so, how to create a working version relation representation?
-                # must remember the variables it operates over.
-
-                R1_domains = copy.deepcopy(constraints[R1]) # a list of assignment sets
-                R1_vars = copy.deepcopy(constraintsToVariables[R1]) # a list of positions on the board
-                R2_domains = copy.deepcopy(constraints[R2]) # a list of assignment sets
-                R2_vars = copy.deepcopy(constraintsToVariables[R2]) # a list of positions on the board
-
-                # print(f"{R1_domains=}")
-                # print(f"{R1_vars=}")
-                # print(f"{R2_domains=}")
-                # print(f"{R2_vars=}")
-
-
-                new_domains = []
-                new_vars = copy.deepcopy(R1_vars)
-                for v in R2_vars:
-                    if v not in new_vars:
-                        new_vars.append(v)
-
-                mergeable_vars = []
-                for i, R1_var in enumerate(R1_vars):
-                    for j, R2_var in enumerate(R2_vars):
-                        if (R2_var == R1_var):
-                            mergeable_vars.append((i, j)) # if the 2nd variable is the same, mark it for skipping
-
-                # ^ note that we're assuming R1 vars is fully present in mergeable_vars, and duplicates are only dropped from R2 instead of R1 if they exist.
-                # this assumption is taken because domains/vars associations are parallel lists, and require indices to match.
-
-                for R1_assignment in R1_domains:
-                    for R2_assignment in R2_domains:
-
-                        new_assignment = {}
-                        drop_domain = False;
-
-                        for overlap in mergeable_vars:
-                            common_var_1, common_var_2 = R1_vars[overlap[0]], R2_vars[overlap[1]]
-                            # print(f"is R1_vars[{common_var_1=}]={common_var_1} != R2_vars[{common_var_2=}]={common_var_2}")
-                            if R1_assignment[common_var_1] != R2_assignment[common_var_2]:
-                                drop_domain = True
-                                break
-
-                        if drop_domain:
-                            continue
-
-
-                        # start with the first relation
-                        for i, R1_var in enumerate(R1_vars):
-                            new_assignment[R1_var] = R1_assignment[R1_var]
-
-                        # then the second relation, but exclude columns already present (i.e variables that were added when part of R1)
-                        for i, R2_var in enumerate(R2_vars):
-                            new_assignment[R2_var] = R2_assignment[R2_var]
-
-                        # # start with the first relation
-                        # for i, R1_var in enumerate(R1_vars):
-                        #     new_domain.append(R1_assignment[i])
-
-                        # # then the second relation, but exclude columns already present (i.e variables that were added when part of R1)
-                        # for i, R2_var in enumerate(R2_vars):
-                        #     if filter(mergeable_vars, key=lambda t: t[1] == i) != []: # if i isnt unique, skip it.
-                        #         continue
-                        # 
-                        #     new_domain.append(R2_assignment[i])
-
-                        new_domains.append(new_assignment)
-
-                return new_domains, new_vars
-
-            # TODO: inner join over all relations
-            # relations_natJoin = copy.deepcopy(all_relation_variables)
-            # for support in R_S_{1}:
-            #     for variable in support:
-
-
             for todoX, todoc in zip(ayy, relation_selection):
-
-                # # NOTEL sanity check: validating that inner join A, A = A
-                # current_constrs = constraints[todoc]
-                # current_constr_vars = constraintsToVariables[todoc]
-                # new_constrs, new_constr_vars = inner_join(todoc, todoc)
-
-                # print(f"old constrs: {current_constrs}")
-                # print(f"new constrs: {new_constrs}")
-                # print(f"old constrs vars: {current_constr_vars}")
-                # print(f"new constrs vars: {new_constr_vars}")
+                # print(f"{todoX=} | {todoc=}")
+                # print(f"{relation_selection=}")
+                # print(f"{ayy=}")
+                # print(f"{nayy=}")
                 # print()
-
-                # if (current_constrs != new_constrs):
-                #     print("PANIK with constrs")
-                #     exit()
-
-                # if (current_constr_vars != new_constr_vars):
-                #     print("PANIK with constrs_vars")
-                #     exit()
+                # continue
 
                 # GAC line 6 and 7
                 """
