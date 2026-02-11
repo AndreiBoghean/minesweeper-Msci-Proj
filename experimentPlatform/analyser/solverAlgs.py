@@ -94,11 +94,40 @@ def generalizedArcConsistency(domains, constraints, variableToConstraints, const
 
 ############ TODO: LOOK DOWN HERE VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV
 
-def relationalArcConsistency(domains, constraints, variableToConstraints, constraintsToVariables, hints, i=1, m=1):
+def relationalArcConsistency(domains, constraints, variableToConstraints, constraintsToVariables, hints, rac_i=1, rac_m=1):
     # helper functions
-    def consistencyCheck(testableLabel, victimVariable, supportVariables, constraint):
+    def consistencyCheck(victimVariables, constraint_domains):
         # print(f"conistency check on {testableLabel=}, {victimVariable=}, {supportVariables=}, {constraint=}")
-        for acceptedAssignment in constraints[constraint]:
+        for domain in constraint_domains:
+            # print("checking assignment", acceptedAssignment)
+            for victimVariable in victimVariables:
+                # print("doms", constraint_domains)
+                # print("dom", domain)
+                # print(victimVariable)
+                demanded_label = domain[victimVariable]
+                if domains[victimVariable][demanded_label]: # if the requested label is present in the domain..
+                    continue
+                else:
+                    return domain # return the no-good domain
+        
+        return []
+
+        #     # check that the current assignment is valid under the current restricted domain
+        #     supportable = True
+        #     for supVar in supportVariables:
+        #         requiredLabel = domain[supVar] # get the label that this assignment requires for this variable
+        #         if not domains[supVar][requiredLabel]:
+        #             supportable = False
+        #             # print(f"not supportable since {supVar} doesnt have label {requiredLabel}")
+        #             break
+
+        #     if supportable: return True
+
+        return False
+
+    def old_consistencyCheck(testableLabel, victimVariable, supportVariables, relevant_constraints):
+        # print(f"conistency check on {testableLabel=}, {victimVariable=}, {supportVariables=}, {constraint=}")
+        for acceptedAssignment in relevant_constraints:
             # print("checking assignment", acceptedAssignment)
             if acceptedAssignment[victimVariable] != testableLabel:
                 continue
@@ -197,8 +226,13 @@ def relationalArcConsistency(domains, constraints, variableToConstraints, constr
     # whenever I'm referencing that implementation, I'll simply say RC(i, m) or something along those lines
 
     # first we build "m relations R_{S_1}, ..., R_{S_m} \in Q" as specified by line 3 of RC
-    relations_masks = minesweeperModel.spot_pick([False]*len(constraints), 0, m) # out of all relations, pick m different relations. (0 just means start from the leftmost.. just there since this is a recursive algorithm)
+    relations_masks = minesweeperModel.spot_pick([False]*len(constraints), 0, rac_m) # out of all relations, pick m different relations. (0 just means start from the leftmost.. just there since this is a recursive algorithm)
     relations_todos = [[i for i in range(len(constraints)) if relation_mask[i]] for relation_mask in relations_masks] # ayys is a set containing every subset A of size i in the Rs selection (i.e. it's the second half of line 3 of RC)
+    # for i = None, we take that to mean unbounded, and adapt execution to do RAC{m} instead of RAC{i,m}.
+    # all this is means is making i "unbounded", by setting it to (the size of the union thing) minus 1.
+    if rac_i == None:
+        rac_i = len(relations_masks)-1
+
 
     for relation_selection in relations_todos: # finally carry out line 3 part 1.. that is.. "for every m relations R_S_{1}, ..., R_S_{m} \in Q ... do other stuff"
 
@@ -252,15 +286,14 @@ def relationalArcConsistency(domains, constraints, variableToConstraints, constr
         # print(f"{starter_item=} | {relation_selection_units=}")
 
         all_relation_domains, all_relation_variables = foldl(starter_item, inner_join, relation_selection_units)
-        # print(f"{relation_selection=}")
+        # print(f"{all_relation_domains=}")
         # print(f"{wide_constraint_context=}")
 
         # print()
         # print()
 
 
-
-        relVars_masks = minesweeperModel.spot_pick([False]*len(all_relation_variables), 0, i) # out of the m options in the current relation selection, pick i spots. (0 just means start from the leftmost.. just there since this is a recursive algorithm)
+        relVars_masks = minesweeperModel.spot_pick([False]*len(all_relation_variables), 0, rac_i) # out of the m options in the current relation selection, pick i spots. (0 just means start from the leftmost.. just there since this is a recursive algorithm)
         ayys = [[var for i, var in enumerate(all_relation_variables) if relVars_mask[i]] for relVars_mask in relVars_masks] # ayys is a set containing every subset A of size i in the Rs selection (i.e. it's the second half of line 3 of RC)
         nAyys = [[var for i, var in enumerate(all_relation_variables) if not relVars_mask[i]] for relVars_mask in relVars_masks] # simply the inverse of the As
         # ^ reminder number 4 of the fact that ayys is the set of all subsets A of size i containing stuff. idk. just see line 3 part 2 from the book.
@@ -271,22 +304,6 @@ def relationalArcConsistency(domains, constraints, variableToConstraints, constr
 
             # todoX = ayy[0]
             # todoc = relation_selection[0]
-
-            #GAC line 5
-            # this line calculates the inverse of A w.r.t. 
-            # todoYs = [otherVar for otherVar in constraintsToVariables[todoc] if otherVar != todoX]
-            # todoYs = sorted(todoYs, key=lambda a: (a[0]+a[1]))
-            # nayy = sorted(todoYs, key=lambda a: (a[0]+a[1]))
-            # print(f"{todoYs=}")
-            # print(f"{nayy=}")
-            # print(f"{str(todoYs) == str(nayy)=}")
-            # if (str(todoYs) != str(nayy)):
-            #     print("WHYYYYYY!!!!")
-            #     exit()
-            # print()
-
-            # within RAC, GAC's todoYs is equiv to our ¬A
-            todoYs = nayy
 
             # basically: for each variable in set A, and for each accepted label,
             # try it within the context of the wider set {R_S_{1}, ..., R_S_{m}}
@@ -301,7 +318,24 @@ def relationalArcConsistency(domains, constraints, variableToConstraints, constr
             # and ask it whether it accepts the current assignment we#re considering.
             #     ^ remember, this is happening for every constraint on every variable :(
 
-            for todoX, todoc in zip(ayy, relation_selection):
+            # conflicting_domain = consistencyCheck(ayy, all_relation_domains)
+            # if conflicting_domain == []:
+            #     # allow it
+            #     pass
+            # else:
+            #     # deny it.. create a new constraint that forbids that configuration
+            #     new_constraint_id = len(constraints)
+
+            #     constraints.append(conflicting_domain)
+            #     constraintsToVariables[new_constraint_id] = ayy
+
+            #     for var in ayy:
+            #         variableToConstraints[var] = variableToConstraints.get(var, []) + [new_constraint_id]
+
+
+            # continue
+
+            for todoX in ayy:
                 # print(f"{todoX=} | {todoc=}")
                 # print(f"{relation_selection=}")
                 # print(f"{ayy=}")
@@ -311,12 +345,52 @@ def relationalArcConsistency(domains, constraints, variableToConstraints, constr
 
                 # GAC line 6 and 7
                 """
-                for this step we need all the labels on todoX which have a support across variables todoYs,
+                for this step we need all the labels on todoX which have a support across variables nayy,
                 according to constraint todoc.
                 """
                 acceptedLabels = [] # NOTE: variable naming: "accepted labels" actually just means variable domains re-adusted according to what labels are arc consistent
                 for xLabelI in range(len(domains[todoX])):
-                    if domains[todoX][xLabelI] and consistencyCheck(xLabelI, todoX, todoYs, todoc): # if the label is still enabled in the domain, and the label meets the consistency check..
+                    if domains[todoX][xLabelI] and old_consistencyCheck(xLabelI, todoX, nayy, all_relation_domains): # if the label is still enabled in the domain, and the label meets the consistency check..
+                    # if domains[todoX][xLabelI] and [] == consistencyCheck(ayy, all_relation_domains):
+                        acceptedLabels.append(True) # record the variable as supported
+                    else:
+                        acceptedLabels.append(False) # record the label as not supported
+
+                # GAC line 8
+                # if acceptedLabels != domains[todoX]:
+                if acceptedLabels != domains[todoX] and acceptedLabels != newDomains[todoX]: # modification to the original algorithm: check the "discovery" we just made hasnt already been made (it it had been, then it'd already be in newDomains)
+                    # GAC line 9
+                    """
+                    for this step we need every variable Z such that Z is connected to X as a neighbour through a constraint c'
+                    ^ subject to c' != c and Z != X
+                    """
+                    # TODO: port over this optimisation.
+                    # for cP in variableToConstraints[todoX]: # for each constraint connected to X
+                    #     for todoY in constraintsToVariables[cP]: # for each variable connected to that constraint
+                    #         if todoY != todoX and cP != todoc:
+                    #             todo.add((todoY, cP))
+
+                    # GAC line 10
+                    # domains[todoX] = acceptedLabels
+                    newDomains[todoX] = acceptedLabels
+            continue 
+
+            for todoX in ayy:
+                # print(f"{todoX=} | {todoc=}")
+                # print(f"{relation_selection=}")
+                # print(f"{ayy=}")
+                # print(f"{nayy=}")
+                # print()
+                # continue
+
+                # GAC line 6 and 7
+                """
+                for this step we need all the labels on todoX which have a support across variables nayy,
+                according to constraint todoc.
+                """
+                acceptedLabels = [] # NOTE: variable naming: "accepted labels" actually just means variable domains re-adusted according to what labels are arc consistent
+                for xLabelI in range(len(domains[todoX])):
+                    if domains[todoX][xLabelI] and consistencyCheck(ayy, nayy, all_relation_domains): # if the label is still enabled in the domain, and the label meets the consistency check..
                         acceptedLabels.append(True) # record the variable as supported
                     else:
                         acceptedLabels.append(False) # record the label as not supported
