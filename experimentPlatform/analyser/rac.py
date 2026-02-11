@@ -3,7 +3,7 @@ import copy
 import minesweeperModel
 import datetime
 
-def relationalArcConsistency(domains, constraints, hints, rac_i=1, rac_m=1):
+def relationalArcConsistency(domains, constraints, rac_i=1, rac_m=1):
     # helper functions
     def RAC_consistencyCheck(victimVariables, constraint_domains):
         # reminder: this should just do R_A \union all_relation_domains.
@@ -137,7 +137,7 @@ def relationalArcConsistency(domains, constraints, hints, rac_i=1, rac_m=1):
         rel_progress += 1
 
         if (rel_progress-last_print) >= 0.001 * len(relations_todos):
-            print(f"rel_progress: {rel_progress}/{len(relations_todos)} = {str(round(rel_progress/len(relations_todos), 5)).ljust(8)} at {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} (started {start_time})")
+            print(f"RAC i={rac_i} m={rac_m}: {rel_progress}/{len(relations_todos)} = {str(round(rel_progress/len(relations_todos), 5)).ljust(8)} at {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} (started {start_time})", end="\r")
             last_print = rel_progress
 
         # now, for line 3 part 2,
@@ -260,6 +260,7 @@ def relationalArcConsistency(domains, constraints, hints, rac_i=1, rac_m=1):
                     # print(domains)
                     # minesweeperModel.renderDomains(newDomains, hints)
                     # print()
+    print() # just to make sure the next print (which is presumably a minesweeper grid) doesnt go onto the carriage return text
 
     return newDomains
     # return domains
