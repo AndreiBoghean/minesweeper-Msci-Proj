@@ -1,6 +1,7 @@
 import copy
 
 import minesweeperModel
+import datetime
 
 def relationalArcConsistency(domains, constraints, hints, rac_i=1, rac_m=1):
     # helper functions
@@ -129,7 +130,15 @@ def relationalArcConsistency(domains, constraints, hints, rac_i=1, rac_m=1):
         rac_i = len(relations_masks)-1
 
 
+    last_print = 0
+    rel_progress = -1
+    start_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     for relation_selection in relations_todos: # finally carry out line 3 part 1.. that is.. "for every m relations R_S_{1}, ..., R_S_{m} \in Q ... do other stuff"
+        rel_progress += 1
+
+        if (rel_progress-last_print) >= 0.001 * len(relations_todos):
+            print(f"rel_progress: {rel_progress}/{len(relations_todos)} = {str(round(rel_progress/len(relations_todos), 5)).ljust(8)} at {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} (started {start_time})")
+            last_print = rel_progress
 
         # now, for line 3 part 2,
         # we need to build a subset A of size i, subject to "A \subseteq foldl_union[S_j for x in range(m)]"
