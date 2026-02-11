@@ -69,13 +69,13 @@ def relationalArcConsistency(domains, constraints, hints, rac_i=1, rac_m=1):
         new_vars = copy.deepcopy(R1_vars)
         for v in R2_vars:
             if v not in new_vars:
-                new_vars.append(v)
+                new_vars.add(v)
 
-        mergeable_vars = []
+        mergeable_vars = set()
         for i, R1_var in enumerate(R1_vars):
             for j, R2_var in enumerate(R2_vars):
                 if (R2_var == R1_var):
-                    mergeable_vars.append((i, j)) # if the 2nd variable is the same, mark it for skipping
+                    mergeable_vars.add(R1_var) # if the 2nd variable is the same, mark it for skipping
 
         # ^ note that we're assuming R1 vars is fully present in mergeable_vars, and duplicates are only dropped from R2 instead of R1 if they exist.
         # this assumption is taken because domains/vars associations are parallel lists, and require indices to match.
@@ -86,10 +86,8 @@ def relationalArcConsistency(domains, constraints, hints, rac_i=1, rac_m=1):
                 new_assignment = {}
                 drop_domain = False;
 
-                for overlap in mergeable_vars:
-                    common_var_1, common_var_2 = R1_vars[overlap[0]], R2_vars[overlap[1]]
-                    # print(f"is R1_vars[{common_var_1=}]={common_var_1} != R2_vars[{common_var_2=}]={common_var_2}")
-                    if R1_assignment[common_var_1] != R2_assignment[common_var_2]:
+                for overlapping_var in mergeable_vars:
+                    if R1_assignment[overlapping_var] != R2_assignment[overlapping_var]:
                         drop_domain = True
                         break
 
@@ -255,3 +253,4 @@ def relationalArcConsistency(domains, constraints, hints, rac_i=1, rac_m=1):
                     # print()
 
     return newDomains
+    # return domains

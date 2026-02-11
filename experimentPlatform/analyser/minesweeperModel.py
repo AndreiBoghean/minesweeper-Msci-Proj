@@ -152,15 +152,15 @@ def arrangementToString(arrangement):
 # 
 
 def constraintToVariables(constraints, constraint_id):
-    return constraints[constraint_id][0].keys()
+    return set(constraints[constraint_id][0].keys())
 
 def variableToConstraints(constraints, variable_id):
 
-    returnable = []
+    returnable = set()
     for constraint_id, constraint in constraints.items():
         # print(f"test: {constraint}")
         if variable_id in constraint[0]:
-            returnable.append(constraint_id)
+            returnable.add(constraint_id)
     
     return returnable
 
