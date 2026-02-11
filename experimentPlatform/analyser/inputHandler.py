@@ -123,7 +123,7 @@ def get_test_input():
 
     ################# PARTIAL CONTROL INPUT PARSING
 
-    return testCasePAPERv1small
+    return testCasePAPERv1
 
 
 # database things we need:
@@ -136,7 +136,7 @@ def get_test_input():
 # and when we do the big "final" statitsics run, we will just download the whole dataset manually.
 
 def get_all_database_content():
-    with open("testData.json") as f:
+    with open("testData/testData.json") as f:
         jayson = json.load(f)
         return jayson
 
@@ -260,14 +260,17 @@ def resimulate_partial_submission(submission, steps):
                     chord(progressing_board, uncovered_board, actionX, actionY)
                 else:
                     print("flag", actionX, actionY)
+                    i -= 1
             case 2: # dedicated chord action via left+right click
                 print("chord init", actionX, actionY)
                 chord(progressing_board, uncovered_board, actionX, actionY)
             case 3: # actionID 3 is restart button clicked down
                 print("reset start")
+                i -= 1
                 break # game is over.. nothing else for us to do..
             case 4: # actionID 4 is restart button click released
                 print("reset done")
+                i -= 1
                 break # game is over.. nothing else for us to do..
 
     return progressing_board
@@ -292,16 +295,26 @@ if __name__ == "__main__": # running as main will run random testing/debug stuff
         print()
 
 
-        domain = minesweeperModel.create_domains(current_board)
-        constraints, variableToConstraints, constraintsToVariables = minesweeperModel.build_constraints(current_board, domain)
+        domains = minesweeperModel.create_domains(current_board)
+        constraints = minesweeperModel.build_constraints(current_board, domains)
 
-        domain = solverAlgs.generalizedArcConsistency(domain, constraints, variableToConstraints, constraintsToVariables, current_board)
+        # domain = solverAlgs.relationalArcConsistency(domain, constraints, rac_i=1, rac_m=1)
 
-        minesweeperModel.renderDomains(domain, current_board)
-        # for row in current_board:
-        #     print(row)
+        # minesweeperModel.renderDomains(domain, current_board)
+        # # for row in current_board:
+        # #     print(row)
 
-        # print()
-        # print()
+        # # print()
+        # # print()
+
+        domainsArr = [domains]
+        for i in range(3):
+            if i == 0: domains = solverAlgs.relationalArcConsistency(domainsArr[0], constraints, rac_i=1, rac_m=1)
+            elif i == 1: domains = solverAlgs.relationalArcConsistency(domainsArr[0], constraints, rac_i=1, rac_m=2)
+            else: domains = solverAlgs.relationalArcConsistency(domainsArr[0], constraints, rac_i=1, rac_m=3)
+
+            domainsArr.append(domains)
+
+        minesweeperModel.phaseRenderDomains(domainsArr, current_board)
 
     # print(board_generate(9, 9, 10, testEntry["seed"]))
