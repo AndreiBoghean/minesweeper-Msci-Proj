@@ -151,11 +151,10 @@ def arrangementToString(arrangement):
 #     print("hints:", i, "positions:", len(testSpot))
 # 
 
-def constraintToVariables(constraints, constraint_id):
+def _constraintToVariables(constraints, constraint_id):
     return set(constraints[constraint_id][0].keys())
 
-def variableToConstraints(constraints, variable_id):
-
+def _variableToConstraints(constraints, variable_id):
     returnable = set()
     for constraint_id, constraint in constraints.items():
         # print(f"test: {constraint}")
@@ -163,6 +162,25 @@ def variableToConstraints(constraints, variable_id):
             returnable.add(constraint_id)
     
     return returnable
+
+constraintsToVariables_cache = {}
+variablesToConstraints_cache = {}
+def insert_constraint(constraints, newConstraint):
+    new_constraint_id = len(constraints)
+    constraints[new_constraint_id] = newConstraint
+
+    constraintsToVariables_cache[new_constraint_id] = set(newConstraint[0].keys())
+    
+    for variable in _constraintToVariables(constraints, new_constraint_id):
+        if variable not in variablesToConstraints_cache: variablesToConstraints_cache[variable] = set()
+        variablesToConstraints_cache[variable].add(new_constraint_id)
+
+def constraintToVariables(constraints, constraint_id):
+    return constraintsToVariables_cache[constraint_id]
+
+def variableToConstraints(constraints, variable_id):
+    return variablesToConstraints_cache[variable_id]
+
 
 # at a high-level, we follow the simple constraint:
 # for every hint, the sum of mines in its neighbours is equal to the hint number.
@@ -186,7 +204,8 @@ def build_constraints(hints, domains):
             # for a hint cell, our FIRST CONSTRAINT IS THAT THE CELL IS OPEN.
             constraintID = len(constraints)
             constraintImpacts = [{(x, y): 0}]
-            constraints[constraintID] = constraintImpacts
+            # constraints[constraintID] = constraintImpacts
+            insert_constraint(constraints, constraintImpacts)
 
             domains[(x, y)] = [True, False]
 
@@ -242,6 +261,7 @@ def build_constraints(hints, domains):
                 constraintImpacts.append(cons)
 
 
-            constraints[constraintID] = constraintImpacts
+            # constraints[constraintID] = constraintImpacts
+            insert_constraint(constraints, constraintImpacts)
 
     return constraints
