@@ -66,6 +66,16 @@ testCasePAPERv1 = np.array([
     [9, 9, 9, 9, 9, 9, 9, 9, 9, 1, 0, 0, 0, 0, 0, 0]
 ])
 
+testCasePAPERv1small = np.array([
+    [9, 9, 9, 9, 9, 1, 0],
+    [9, 9, 2, 1, 1, 1, 0],
+    [9, 9, 1, 0, 0, 0, 0],
+    [9, 9, 1, 1, 0, 1, 1],
+    [9, 9, 9, 2, 1, 2, 9],
+    [9, 9, 9, 9, 9, 9, 9],
+    [9, 9, 9, 9, 9, 9, 9],
+])
+
 testCasePAPERv2 = np.array([
     [0, 0, 0, 0, 1, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 1],
     [0, 0, 1, 1, 2, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9],
@@ -113,7 +123,7 @@ def get_test_input():
 
     ################# PARTIAL CONTROL INPUT PARSING
 
-    return testCasePAPERv2
+    return testCasePAPERv1small
 
 
 # database things we need:

@@ -47,15 +47,20 @@ print("_____________________")
 
 ################ GAC
 
-domainsArr = []
+domainsArr = [domains]
+print(f"starting domains:")
+minesweeperModel.phaseRenderDomains(domainsArr, hints)
 
-for i in range(2):
+
+for i in range(3):
+    # domains = solverAlgs.generalizedArcConsistency(domainsArr[-1], constraints, hints)
+    # domains = solverAlgs.relationalArcConsistency(domainsArr[-1], constraints, hints)
+    if i == 0: domains = solverAlgs.relationalArcConsistency(domainsArr[0], constraints, hints, rac_i=1, rac_m=1)
+    elif i == 1: domains = solverAlgs.relationalArcConsistency(domainsArr[0], constraints, hints, rac_i=1, rac_m=2)
+    else: domains = solverAlgs.relationalArcConsistency(domainsArr[0], constraints, hints, rac_i=1, rac_m=3)
+
     domainsArr.append(domains)
-    print(f"domains after {i} attempts:")
+    print(f"domains after {i+1} attempts:")
     # minesweeperModel.renderDomains(domains, hints)
     minesweeperModel.phaseRenderDomains(domainsArr, hints)
     print()
-
-    # domains = solverAlgs.generalizedArcConsistency(domainsArr[-1], constraints, hints)
-    # domains = solverAlgs.relationalArcConsistency(domainsArr[-1], constraints, hints)
-    domains = solverAlgs.relationalArcConsistency(domainsArr[-1], constraints, hints, rac_i=1, rac_m=1)
