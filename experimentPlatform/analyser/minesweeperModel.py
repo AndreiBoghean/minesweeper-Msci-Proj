@@ -84,7 +84,7 @@ def phaseRenderDomains(domainsArr, hints):
             # if something if an open cell, we check what domainArr it was opened in
             # if something is a mine, we check what domainArr it was mined in.
             # and that's how we decide which colour to use.
-            options = [hcolGRAY, hcolBLUE, hcolGREEN, hcolYELLOW]
+            options = [hcolGRAY, hcolBLUE, hcolGREEN, hcolYELLOW, hcolRED]
             option = options[0]
 
 

@@ -123,7 +123,7 @@ def get_test_input():
 
     ################# PARTIAL CONTROL INPUT PARSING
 
-    return testCasePAPERv1
+    return testCasePAPERv1small
 
 
 # database things we need:
