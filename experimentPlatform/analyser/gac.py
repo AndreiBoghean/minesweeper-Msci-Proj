@@ -1,6 +1,8 @@
 import copy
 
-def generalizedArcConsistency(domains, constraints, variableToConstraints, constraintsToVariables, hints):
+import minesweeperModel
+
+def generalizedArcConsistency(domains, constraints):
     # helper func
     def GAC_consistencyCheck(testableLabel, victimVariable, supportVariables, constraint):
         # print(f"conistency check on {testableLabel=}, {victimVariable=}, {supportVariables=}, {constraint=}")
@@ -30,9 +32,11 @@ def generalizedArcConsistency(domains, constraints, variableToConstraints, const
 
     # todo is (initially) a list of every pairing between a variable and a constraint that acts upon it.
     for variable in domains: # remember that domains is dictionary between {variable: domainSet}
-        if variable in variableToConstraints: # if the variable has a constraint (unconstrained variables currenly comprise cells that arent surrounded by any hints)
-            for constraint in variableToConstraints[variable]:
-                todo.add((variable, constraint))
+        varConstraints = minesweeperModel.variableToConstraints(constraints, variable)
+
+        # if varConstraints != []: # if the variable has a constraint (unconstrained variables currenly comprise cells that arent surrounded by any hints)
+        for constraint in varConstraints:
+            todo.add((variable, constraint))
 
     # ATTEMPT ONE: implementing algorithm from https://artint.info/3e/html/ArtInt3e.Ch4.S3.html
     while len(todo) > 0: # line 3
@@ -41,7 +45,7 @@ def generalizedArcConsistency(domains, constraints, variableToConstraints, const
         todoX, todoc = todoable
 
         #line 5
-        todoYs = [otherVar for otherVar in constraintsToVariables[todoc] if otherVar != todoX]
+        todoYs = [otherVar for otherVar in minesweeperModel.constraintToVariables(constraints, todoc) if otherVar != todoX]
         # print("for", todoable, "we get Ys", todoYs)
 
         # line 6 and 7
@@ -64,8 +68,8 @@ def generalizedArcConsistency(domains, constraints, variableToConstraints, const
             for this step we need every variable Z such that Z is connected to X as a neighbour through a constraint c'
             ^ subject to c' != c and Z != X
             """
-            for cP in variableToConstraints[todoX]: # for each constraint connected to X
-                for todoY in constraintsToVariables[cP]: # for each variable connected to that constraint
+            for cP in minesweeperModel.variableToConstraints(constraints, todoX): # for each constraint connected to X
+                for todoY in minesweeperModel.constraintToVariables(constraints, cP): # for each variable connected to that constraint
                     if todoY != todoX and cP != todoc:
                         todo.add((todoY, cP))
 

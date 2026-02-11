@@ -149,7 +149,20 @@ def arrangementToString(arrangement):
 # for i in range(9):
 #     testSpot = spot_pick([False]*8, 0, i)
 #     print("hints:", i, "positions:", len(testSpot))
+# 
 
+def constraintToVariables(constraints, constraint_id):
+    return constraints[constraint_id][0].keys()
+
+def variableToConstraints(constraints, variable_id):
+
+    returnable = []
+    for constraint_id, constraint in constraints.items():
+        # print(f"test: {constraint}")
+        if variable_id in constraint[0]:
+            returnable.append(constraint_id)
+    
+    return returnable
 
 # at a high-level, we follow the simple constraint:
 # for every hint, the sum of mines in its neighbours is equal to the hint number.
@@ -157,9 +170,7 @@ def arrangementToString(arrangement):
 # for a hint of 1, there is either 1 mine top-left and no mine elsewhere, or 1 mine top and no mine elsewhere, or 1 mine top-right and no mine elsewhere, etc.
 # with increasing combinations for more mines.
 def build_constraints(hints, domains):
-    constraints = [] # WARN@ "constraints" here actually means "constraint domains". each entry in this list corresponds to a single constraint. each entry/constraint is a list, of all the different possible acceptable assignments.
-    variableToConstraints = {}
-    constraintsToVariables = {}
+    constraints = {} # constraint ID to list of var domains. each entry in this list corresponds to a single constraint. each entry/constraint is a list of all the different possible acceptable assignments.
 
     for y in range(hints.shape[0]):
         for x in range(hints.shape[1]):
@@ -174,13 +185,8 @@ def build_constraints(hints, domains):
             # above check didnt skip this cell, so it's a hint cell.
             # for a hint cell, our FIRST CONSTRAINT IS THAT THE CELL IS OPEN.
             constraintID = len(constraints)
-            # record the mapping from the new constraint to the variables it influences (in this cases just (x, y))
-            constraintsToVariables[constraintID] = [(x, y)]
-            # record the constraint as being one that influences this variable
-            variableToConstraints[(x, y)] = variableToConstraints.get((x, y), []) + [constraintID] # WARN: creating a new array each time..
-            # record the actual constraint
             constraintImpacts = [{(x, y): 0}]
-            constraints.append(constraintImpacts)
+            constraints[constraintID] = constraintImpacts
 
             domains[(x, y)] = [True, False]
 
@@ -216,14 +222,8 @@ def build_constraints(hints, domains):
                     #     print("discarded neighbor", x2, y2, "for", x, y, f"..see {y2} != {y} and {x2} != {x} and {y2} >= 0 and {y2} < {hints.shape[0]} and {x2} >= 0 and {x2} < {hints.shape[1]}")
             # print("releveant variables (Neighbours) at", x, y, "are", relevantVariables)
 
-            # record the mapping from this new constraint to all of the variables it influences
-            constraintsToVariables[constraintID] = relevantVariables
 
-            # for every variable influenced.. record this constraint as being one that influences the variable.
-            for var in relevantVariables: variableToConstraints[var] = variableToConstraints.get(var, []) + [constraintID] # WARN: creating a new array each time..
-
-
-            # ^ we recorded the mappings, but for the constraint to actually "exist" we need to initialise the "domain" of the constraint, similary to the variables.
+            # for the constraint to actually "exist" we need to initialise the "domain" of the constraint, similary to the variables.
             # I define the "domain" of a constraint being the enumeration of every possible label set (over relevant variables) which still satisfies it.
 
             # now we need to make a unique constraint for every combination of mines among the neighbours.
@@ -242,6 +242,6 @@ def build_constraints(hints, domains):
                 constraintImpacts.append(cons)
 
 
-            constraints.append(constraintImpacts)
+            constraints[constraintID] = constraintImpacts
 
-    return constraints, variableToConstraints, constraintsToVariables
+    return constraints

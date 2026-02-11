@@ -2,9 +2,26 @@ import copy
 
 import minesweeperModel
 
-def relationalArcConsistency(domains, constraints, variableToConstraints, constraintsToVariables, hints, rac_i=1, rac_m=1):
+def relationalArcConsistency(domains, constraints, hints, rac_i=1, rac_m=1):
     # helper functions
     def RAC_consistencyCheck(victimVariables, constraint_domains):
+        # reminder: this should just do R_A \union all_relation_domains.
+        
+        # to do that, we filter constraint_domains down to A.
+        
+        # and then, for each valid assignment to variables A,
+        # we check it's permitted by the filtered constraint_domains
+
+        # we then return only the permitted assignments, in the form of a constraint.
+
+        # for domain1 in A_1:
+        #     for domain2 in A_2:
+        #         if domain1, domain2 is not in constraint_domains:
+        #             remove domain1, domain2 from victimVars relation
+
+        relVars_masks = minesweeperModel.spot_pick([False]*len(victimVariables), 0, rac_i)
+
+
         # print(f"conistency check on {testableLabel=}, {victimVariable=}, {supportVariables=}, {constraint=}")
         for domain in constraint_domains:
             for victimVariable in victimVariables:
@@ -122,7 +139,7 @@ def relationalArcConsistency(domains, constraints, variableToConstraints, constr
 
         # all_relation_variables = []
         # for relation in relation_selection:
-        #     all_relation_variables.extend(constraintsToVariables[relation])
+        #     all_relation_variables.extend(minesweeperModel.constraintToVariables(constraints, relation))
         # all_relation_variables = list(set(all_relation_variables))
 
 
@@ -131,15 +148,15 @@ def relationalArcConsistency(domains, constraints, variableToConstraints, constr
 
 
         # R1_domains = copy.deepcopy(constraints[R1]) # a list of assignment sets
-        # R1_vars = copy.deepcopy(constraintsToVariables[R1]) # a list of positions on the board
+        # R1_vars = copy.deepcopy(minesweeperModel.constraintToVariables(constraints, R1)) # a list of positions on the board
         # R2_domains = copy.deepcopy(constraints[R2]) # a list of assignment sets
-        # R2_vars = copy.deepcopy(constraintsToVariables[R2]) # a list of positions on the board
+        # R2_vars = copy.deepcopy(minesweeperModel.constraintToVariables(constraints, R2)) # a list of positions on the board
 
         # print(f"{R1_domains=}\n{R1_vars=}\n{R2_domains=}\n{R2_vars=}")
 
         # # NOTEL sanity check: validating that inner join A, A = A
         # current_constrs = constraints[todoc]
-        # current_constr_vars = constraintsToVariables[todoc]
+        # current_constr_vars = minesweeperModel.constraintToVariables(constraints, todoc)
         # new_constrs, new_constr_vars = inner_join(todoc, todoc)
 
         # print(f"old constrs: {current_constrs}")
@@ -156,7 +173,7 @@ def relationalArcConsistency(domains, constraints, variableToConstraints, constr
         #     print("PANIK with constrs_vars")
         #     exit()
 
-        relation_selection_units = [(constraints[relation_ID], constraintsToVariables[relation_ID]) for relation_ID in relation_selection]
+        relation_selection_units = [(constraints[relation_ID], minesweeperModel.constraintToVariables(constraints, relation_ID)) for relation_ID in relation_selection]
         starter_item = relation_selection_units.pop()
 
         all_relation_domains, all_relation_variables = foldl(starter_item, inner_join, relation_selection_units)
@@ -170,9 +187,6 @@ def relationalArcConsistency(domains, constraints, variableToConstraints, constr
         for ayy, nayy in zip(ayys, nAyys): # for each subset A..
             # technically, with i=1 and m=1, if we run this algorithm like we were doing before with GAC,
             # then at this point we should be given a single todox and todoc, much like our GAC attempt.
-
-            # todoX = ayy[0]
-            # todoc = relation_selection[0]
 
             # basically: for each variable in set A, and for each accepted label,
             # try it within the context of the wider set {R_S_{1}, ..., R_S_{m}}
@@ -196,11 +210,9 @@ def relationalArcConsistency(domains, constraints, variableToConstraints, constr
             #     new_constraint_id = len(constraints)
 
             #     constraints.append(conflicting_domain)
-            #     constraintsToVariables[new_constraint_id] = ayy
 
-            #     for var in ayy:
-            #         variableToConstraints[var] = variableToConstraints.get(var, []) + [new_constraint_id]
-
+            # RAC_consistencyCheck(ayy, all_relation_domains) # this should just do R_A \union all_relation_domains
+            # # we then want to modify R_A to be that result.
 
             # continue
 
@@ -227,8 +239,8 @@ def relationalArcConsistency(domains, constraints, variableToConstraints, constr
                     ^ subject to c' != c and Z != X
                     """
                     # TODO: port over this optimisation.
-                    # for cP in variableToConstraints[todoX]: # for each constraint connected to X
-                    #     for todoY in constraintsToVariables[cP]: # for each variable connected to that constraint
+                    # for cP in minesweeperModel.variableToConstraints(constraints, todoX): # for each constraint connected to X
+                    #     for todoY in minesweeperModel.constraintToVariables(constraints, cP): # for each variable connected to that constraint
                     #         if todoY != todoX and cP != todoc:
                     #             todo.add((todoY, cP))
 

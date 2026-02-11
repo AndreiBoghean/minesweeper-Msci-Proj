@@ -15,7 +15,8 @@ print("building domains")
 domains = minesweeperModel.create_domains(hints)
 
 print("building constraints")
-constraints, variableToConstraints, constraintsToVariables = minesweeperModel.build_constraints(hints, domains)
+# constraints, variableToConstraints, constraintsToVariables = minesweeperModel.build_constraints(hints, domains)
+constraints = minesweeperModel.build_constraints(hints, domains)
 
 
 print()
@@ -32,15 +33,15 @@ print("raw constraints:")
 for const in constraints: print(const)
 print("_____________________")
 
-print("vars to constraints:")
-# print(variableToConstraints) # should never change after the inital constraint expansion..
-for item in variableToConstraints: print(item, ":", variableToConstraints[item])
-print("_____________________")
-
-print("constraints to vars:")
-# print(constraintsToVariables) # should never change after the initial constraint expansion..
-for item in constraintsToVariables: print(item, ":", constraintsToVariables[item])
-print("_____________________")
+# print("vars to constraints:")
+# # print(variableToConstraints) # should never change after the inital constraint expansion..
+# for item in minesweeperModel.variableToConstraints: print(item, ":", variableToConstraints[item])
+# print("_____________________")
+# 
+# print("constraints to vars:")
+# # print(constraintsToVariables) # should never change after the initial constraint expansion..
+# for item in constraintsToVariables: print(item, ":", constraintsToVariables[item])
+# print("_____________________")
 
 # now the model is done and set up...
 # time to move on to "solving", first via GAC.
@@ -56,4 +57,5 @@ for i in range(4):
     minesweeperModel.phaseRenderDomains(domainsArr, hints)
     print()
 
-    domains = solverAlgs.generalizedArcConsistency(domainsArr[-1], constraints, variableToConstraints, constraintsToVariables, hints)
+    # domains = solverAlgs.generalizedArcConsistency(domainsArr[-1], constraints, variableToConstraints, constraintsToVariables, hints)
+    domains = solverAlgs.generalizedArcConsistency(domainsArr[-1], constraints)
