@@ -123,7 +123,7 @@ def get_test_input():
 
     ################# PARTIAL CONTROL INPUT PARSING
 
-    return testCasePAPERv1small
+    return testCasePAPERv1
 
 
 # database things we need:
@@ -311,6 +311,7 @@ if __name__ == "__main__": # running as main will run random testing/debug stuff
         for i in range(3):
             if i == 0: domains = solverAlgs.relationalArcConsistency(domainsArr[0], constraints, rac_i=1, rac_m=1)
             elif i == 1: domains = solverAlgs.relationalArcConsistency(domainsArr[0], constraints, rac_i=1, rac_m=2)
+            elif i == 2: domains = solverAlgs.relationalArcConsistency(domainsArr[0], constraints, rac_i=1, rac_m=3)
             else: domains = solverAlgs.relationalArcConsistency(domainsArr[0], constraints, rac_i=1, rac_m=3)
 
             domainsArr.append(domains)
