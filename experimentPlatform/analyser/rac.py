@@ -20,8 +20,6 @@ def relationalArcConsistency(domains, constraints, rac_i=1, rac_m=1):
         #         if domain1, domain2 is not in constraint_domains:
         #             remove domain1, domain2 from victimVars relation
 
-        relVars_masks = minesweeperModel.spot_pick([False]*len(victimVariables), 0, rac_i)
-
 
         # print(f"conistency check on {testableLabel=}, {victimVariable=}, {supportVariables=}, {constraint=}")
         for domain in constraint_domains:
@@ -132,12 +130,13 @@ def relationalArcConsistency(domains, constraints, rac_i=1, rac_m=1):
 
     last_print = 0
     rel_progress = -1
-    start_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    start_time = datetime.datetime.now()
+    start_time_str = start_time.strftime("%Y-%m-%d %H:%M:%S")
     for relation_selection in relations_todos: # finally carry out line 3 part 1.. that is.. "for every m relations R_S_{1}, ..., R_S_{m} \in Q ... do other stuff"
         rel_progress += 1
 
         if (rel_progress-last_print) >= 0.001 * len(relations_todos):
-            print(f"RAC i={rac_i} m={rac_m}: {rel_progress}/{len(relations_todos)} = {str(round(rel_progress/len(relations_todos), 5)).ljust(8)} at {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} (started {start_time})", end="\r")
+            print(f"RAC i={rac_i} m={rac_m}: {rel_progress}/{len(relations_todos)} = {str(round(rel_progress/len(relations_todos), 5)).ljust(8)} at {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} (started {start_time_str}) (taking {round((datetime.datetime.now()-start_time).seconds/60, 3)}m)", end="\r")
             last_print = rel_progress
 
         # now, for line 3 part 2,
