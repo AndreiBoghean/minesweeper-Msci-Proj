@@ -77,7 +77,13 @@ def phaseRenderDomains(domainsArr, hints):
     hcolYELLOW = '\033[43m'
     hbcolYELLOW = '\033[43;5m'
 
+    colUNDERLINE = '\033[4m'
+
+    index_reprs = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    print(colUNDERLINE + " |" + "".join([index_reprs[i] for i in range(len(hints[0]))]) + colRESTORE)
+
     for y, row in enumerate(hints):
+        print(f"{index_reprs[y]}|", end="")
         for x, cell in enumerate(row):
             # presume we're given 4 items in domainsArr: original, algorithm1, algorithm2, algorithm3.
             # anything uncovered by an algorithm will uncover either an open cell (hint==9) or a mine (domain=[False,True]).
@@ -175,6 +181,8 @@ def insert_constraint(constraints, newConstraint):
         if variable not in variablesToConstraints_cache: variablesToConstraints_cache[variable] = set()
         variablesToConstraints_cache[variable].add(new_constraint_id)
 
+    return constraints
+
 def constraintToVariables(constraints, constraint_id):
     return constraintsToVariables_cache.get(constraint_id, [])
 
@@ -190,27 +198,30 @@ def variableToConstraints(constraints, variable_id):
 def build_constraints(hints, domains):
     constraints = {} # constraint ID to list of var domains. each entry in this list corresponds to a single constraint. each entry/constraint is a list of all the different possible acceptable assignments.
 
+    # first we constrain all "revealed" cells to actually be revealed in their domains.
     for y in range(hints.shape[0]):
         for x in range(hints.shape[1]):
             hintCount = hints[y][x]
 
-            # print(f"at pos ({x}, {y}), next constraint is {len(constraints)}")
-
             if (hintCount == 9): # hintCount==9 states a covered cell, so we dont constrain its neighbours because we dont have a "hint" for that cell.
                 continue
-
 
             # above check didnt skip this cell, so it's a hint cell.
             # for a hint cell, our FIRST CONSTRAINT IS THAT THE CELL IS OPEN.
             constraintID = len(constraints)
             constraintImpacts = [{(x, y): 0}]
             # constraints[constraintID] = constraintImpacts
-            insert_constraint(constraints, constraintImpacts)
+            constraints = insert_constraint(constraints, constraintImpacts)
 
             domains[(x, y)] = [True, False]
 
-            # secondly, we constraint that the sum of neighbours is equal to the hint number... all of that is done below. note some ramblings are within old context. enjoy sifting comments :)
+    # secondly, we constraint that the sum of neighbours is equal to the hint number... all of that is done below. note some ramblings are within old context. enjoy sifting comments :)
+    for y in range(hints.shape[0]):
+        for x in range(hints.shape[1]):
+            hintCount = hints[y][x]
 
+            if (hintCount == 9): # hintCount==9 states a covered cell, so we dont constrain its neighbours because we dont have a "hint" for that cell.
+                continue
 
             # we want to store the fact that arrangements[0] OR arrangements[1] OR arrangements[2] ... etc.
             # and put that in our constraints storage
@@ -256,12 +267,20 @@ def build_constraints(hints, domains):
             constraintImpacts = []
             for enumer in enumerations:
                 cons = {} # mapping from variable IDs (cell x,y in my case) to the acceptable label. if multiple labels are acceptable, then there will be another enumeration.
+                enumeration_impossible = False
                 for requiredMine, relVar in zip(enumer, relevantVariables):
+                    if domains[relVar][1 if requiredMine else 0] == False:
+                        enumeration_impossible = True
+                        break
+
                     cons[relVar] = 1 if requiredMine else 0 # NOTE: 1 and 0 here are IDs for LABELS. 0 is the ID for label "empty", 1 is the ID for label "mine"
-                constraintImpacts.append(cons)
+
+                if not enumeration_impossible:
+                    constraintImpacts.append(cons)
 
 
             # constraints[constraintID] = constraintImpacts
-            insert_constraint(constraints, constraintImpacts)
+            if constraintImpacts != []:
+                constraints = insert_constraint(constraints, constraintImpacts)
 
     return constraints
