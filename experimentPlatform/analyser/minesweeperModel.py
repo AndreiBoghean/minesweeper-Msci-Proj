@@ -112,7 +112,7 @@ def phaseRenderDomains(domainsArr, hints):
                 print(hints[y, x], end=colRESTORE)
 
             else:
-                print(celRED + "Q", end=colRESTORE)
+                print(colRED + "Q", end=colRESTORE)
         print()
 
 ####################################### CONSTRAINTS
@@ -160,7 +160,7 @@ def _variableToConstraints(constraints, variable_id):
         # print(f"test: {constraint}")
         if variable_id in constraint[0]:
             returnable.add(constraint_id)
-    
+
     return returnable
 
 constraintsToVariables_cache = {}
@@ -176,10 +176,10 @@ def insert_constraint(constraints, newConstraint):
         variablesToConstraints_cache[variable].add(new_constraint_id)
 
 def constraintToVariables(constraints, constraint_id):
-    return constraintsToVariables_cache[constraint_id]
+    return constraintsToVariables_cache.get(constraint_id, [])
 
 def variableToConstraints(constraints, variable_id):
-    return variablesToConstraints_cache[variable_id]
+    return variablesToConstraints_cache.get(variable_id, [])
 
 
 # at a high-level, we follow the simple constraint:
