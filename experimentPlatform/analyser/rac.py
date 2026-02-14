@@ -65,19 +65,12 @@ def relationalArcConsistency(domains, constraints, rac_i=1, rac_m=1):
         # must remember the variables it operates over.
 
         new_domains = []
-        new_vars = copy.deepcopy(R1_vars)
+        new_vars = set([var for var in R1_vars])
         for v in R2_vars:
             if v not in new_vars:
                 new_vars.add(v)
 
-        mergeable_vars = set()
-        for i, R1_var in enumerate(R1_vars):
-            for j, R2_var in enumerate(R2_vars):
-                if (R2_var == R1_var):
-                    mergeable_vars.add(R1_var) # if the 2nd variable is the same, mark it for skipping
-
-        # ^ note that we're assuming R1 vars is fully present in mergeable_vars, and duplicates are only dropped from R2 instead of R1 if they exist.
-        # this assumption is taken because domains/vars associations are parallel lists, and require indices to match.
+        mergeable_vars = R1_vars & R2_vars
 
         for R1_assignment in R1_domains:
             for R2_assignment in R2_domains:
@@ -93,13 +86,12 @@ def relationalArcConsistency(domains, constraints, rac_i=1, rac_m=1):
                 if drop_domain:
                     continue
 
-
                 # start with the first relation
-                for i, R1_var in enumerate(R1_vars):
+                for R1_var in R1_vars:
                     new_assignment[R1_var] = R1_assignment[R1_var]
 
                 # then the second relation, but exclude columns already present (i.e variables that were added when part of R1)
-                for i, R2_var in enumerate(R2_vars):
+                for R2_var in R2_vars:
                     new_assignment[R2_var] = R2_assignment[R2_var]
 
                 new_domains.append(new_assignment)
@@ -139,49 +131,17 @@ def relationalArcConsistency(domains, constraints, rac_i=1, rac_m=1):
             print(f"RAC i={rac_i} m={rac_m}: {rel_progress}/{len(relations_todos)} = {str(round(rel_progress/len(relations_todos), 5)).ljust(8)} at {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} (started {start_time_str}) (taking {round((datetime.datetime.now()-start_time).seconds/60, 3)}m)", end="\r")
             last_print = rel_progress
 
-        # now, for line 3 part 2,
-        # we need to build a subset A of size i, subject to "A \subseteq foldl_union[S_j for x in range(m)]"
-        # my logical anchor is that, for i=1 m=1, this simply goes to todoables[0] (where todoables should only be one item since m=1)
-
-        # all_relation_variables = []
-        # for relation in relation_selection:
-        #     all_relation_variables.extend(minesweeperModel.constraintToVariables(constraints, relation))
-        # all_relation_variables = list(set(all_relation_variables))
-
-
-
-        # TODO: inner join over all relations to get "the context"
-
-
-        # R1_domains = copy.deepcopy(constraints[R1]) # a list of assignment sets
-        # R1_vars = copy.deepcopy(minesweeperModel.constraintToVariables(constraints, R1)) # a list of positions on the board
-        # R2_domains = copy.deepcopy(constraints[R2]) # a list of assignment sets
-        # R2_vars = copy.deepcopy(minesweeperModel.constraintToVariables(constraints, R2)) # a list of positions on the board
-
-        # print(f"{R1_domains=}\n{R1_vars=}\n{R2_domains=}\n{R2_vars=}")
-
         # # NOTEL sanity check: validating that inner join A, A = A
         # current_constrs = constraints[todoc]
         # current_constr_vars = minesweeperModel.constraintToVariables(constraints, todoc)
         # new_constrs, new_constr_vars = inner_join(todoc, todoc)
-
-        # print(f"old constrs: {current_constrs}")
-        # print(f"new constrs: {new_constrs}")
-        # print(f"old constrs vars: {current_constr_vars}")
-        # print(f"new constrs vars: {new_constr_vars}")
-        # print()
-
-        # if (current_constrs != new_constrs):
-        #     print("PANIK with constrs")
-        #     exit()
-
-        # if (current_constr_vars != new_constr_vars):
-        #     print("PANIK with constrs_vars")
+        # print(f"old constrs: {current_constrs}\nnew constrs: {new_constrs} \nold constrs vars: {current_constr_vars} \nnew constrs vars: {new_constr_vars}")
+        # if (current_constrs != new_constrs OR current_constr_vars != new_constr_vars):
+        #     print(f"PANIK with inner join validity {current_constrs != new_constrs=} OR {current_constr_vars != new_constr_vars=}")
         #     exit()
 
         relation_selection_units = [(constraints[relation_ID], minesweeperModel.constraintToVariables(constraints, relation_ID)) for relation_ID in relation_selection]
         starter_item = relation_selection_units.pop()
-
         all_relation_domains, all_relation_variables = foldl(starter_item, inner_join, relation_selection_units)
 
 
@@ -191,37 +151,6 @@ def relationalArcConsistency(domains, constraints, rac_i=1, rac_m=1):
         # ^ reminder number 4 of the fact that ayys is the set of all subsets A of size i containing stuff. idk. just see line 3 part 2 from the book.
 
         for ayy, nayy in zip(ayys, nAyys): # for each subset A..
-            # technically, with i=1 and m=1, if we run this algorithm like we were doing before with GAC,
-            # then at this point we should be given a single todox and todoc, much like our GAC attempt.
-
-            # basically: for each variable in set A, and for each accepted label,
-            # try it within the context of the wider set {R_S_{1}, ..., R_S_{m}}
-            # and reject the label assignmrnt from A if it doesnt agree with the contex.
-
-            # FIRSTLY, I build the NATURAL JOIN of all relevant relations R_S_{1}, ..., R_S_{m}.
-            # to do this, I collect all the relevant variables into a pool,
-            # and compute every combination of assignments to those variables.
-
-            # SECONDLY, I iterate over every variable in the pool, and look at all the constraints on it.
-            # for each of that constraint, we mask the constraint's variables with our variable set,
-            # and ask it whether it accepts the current assignment we#re considering.
-            #     ^ remember, this is happening for every constraint on every variable :(
-
-            # conflicting_domain = consistencyCheck(ayy, all_relation_domains)
-            # if conflicting_domain == []:
-            #     # allow it
-            #     pass
-            # else:
-            #     # deny it.. create a new constraint that forbids that configuration
-            #     new_constraint_id = len(constraints)
-
-            #     constraints.append(conflicting_domain)
-
-            # RAC_consistencyCheck(ayy, all_relation_domains) # this should just do R_A \union all_relation_domains
-            # # we then want to modify R_A to be that result.
-
-            # continue
-
             for todoX in ayy:
                 # GAC line 6 and 7
                 """
@@ -235,6 +164,25 @@ def relationalArcConsistency(domains, constraints, rac_i=1, rac_m=1):
                         acceptedLabels.append(True) # record the variable as supported
                     else:
                         acceptedLabels.append(False) # record the label as not supported
+
+
+                # new_constraint = []
+                # if acceptedLabels[0]: new_constraint.append({todoX: 0})
+                # if acceptedLabels[1]: new_constraint.append({todoX: 1})
+                # minesweeperModel.insert_constraint(constraints, new_constraint)
+
+
+                # for var in newDomains: # note that domains keys are variables.. domains is mapping variable->var_domains
+                #     accepted_labels = set()
+                #     for constraint in minesweeperModel.variableToConstraints(constraints, var):
+                #         for assignment in constraints[constraint]:
+                #             accepted_labels.add(assignment[var])
+
+
+                #     for currently_available_label in domains[var]:
+                #         if currently_available_label not in accepted_labels:
+                #             newDomains[var][currently_available_label] = False
+                # continue
 
                 # GAC line 8
                 # if acceptedLabels != domains[todoX]:
@@ -250,16 +198,33 @@ def relationalArcConsistency(domains, constraints, rac_i=1, rac_m=1):
                     #         if todoY != todoX and cP != todoc:
                     #             todo.add((todoY, cP))
 
-                    # GAC line 10
-                    # domains[todoX] = acceptedLabels
                     newDomains[todoX] = acceptedLabels
 
-                    # print(f"domains changed! on {todoX}: {domains[todoX]} went to {acceptedLabels}")
-                    # print("new domains:")
-                    # print(domains)
-                    # minesweeperModel.renderDomains(newDomains, hints)
-                    # print()
+                # for var in newDomains: # note that domains keys are variables.. domains is mapping variable->var_domains
+                #     if var != todoX: continue
+
+                #     accepted_labels = set()
+                #     for constraint in minesweeperModel.variableToConstraints(constraints, var):
+                #         for assignment in constraints[constraint]:
+                #             accepted_labels.add(assignment[var])
+
+
+                #     for currently_available_label in domains[var]:
+                #         if currently_available_label not in accepted_labels:
+                #             newDomains[var][currently_available_label] = False
+
+
     print() # just to make sure the next print (which is presumably a minesweeper grid) doesnt go onto the carriage return text
 
+    # for var in newDomains: # note that domains keys are variables.. domains is mapping variable->var_domains
+    #     accepted_labels = set()
+    #     for constraint in minesweeperModel.variableToConstraints(constraints, var):
+    #         for assignment in constraints[constraint]:
+    #             accepted_labels.add(assignment[var])
+
+
+    #     for currently_available_label in domains[var]:
+    #         if currently_available_label not in accepted_labels:
+    #             newDomains[var][currently_available_label] = False
+
     return newDomains
-    # return domains
