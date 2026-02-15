@@ -2,6 +2,9 @@ import numpy as np
 from scipy.signal import convolve2d
 
 import json
+import datetime
+import os
+import sys
 
 import minesweeperModel
 import solverAlgs
@@ -107,6 +110,18 @@ testCasePAPERv3 = np.array([
     [0, 0, 0, 0, 0, 0, 0, 1, 9],
 ])
 
+testCaseFullySolvedV1 = np.array([
+    [0, 0, 0, 1, 1, 1, 0, 0, 0],
+    [0, 0, 0, 1, 9, 1, 1, 1, 1],
+    [1, 1, 1, 1, 1, 1, 1, 9, 1],
+    [1, 9, 1, 0, 0, 1, 2, 3, 2],
+    [1, 1, 1, 0, 1, 2, 9, 4, 9],
+    [0, 0, 0, 0, 2, 9, 4, 9, 9],
+    [0, 0, 0, 0, 2, 9, 3, 2, 2],
+    [0, 0, 1, 1, 2, 1, 1, 0, 0],
+    [0, 0, 1, 9, 1, 0, 0, 0, 0],
+])
+
 def get_test_input():
 
     chosenTestCase = testCase5
@@ -136,7 +151,8 @@ def get_test_input():
 
     ################# PARTIAL CONTROL INPUT PARSING
 
-    return testCasePAPERv3
+    # return testCaseFullySolvedV1
+    return testCasePAPERv1
 
 
 # database things we need:
@@ -250,7 +266,7 @@ def resimulate_partial_submission(submission, steps):
 
     i = 0
     for action in submission["actionRecords"]:
-        if i == steps: break
+        if i == steps: return progressing_board
         if not action["successful"]:
             print("unsuccessful")
             continue
@@ -286,49 +302,123 @@ def resimulate_partial_submission(submission, steps):
                 i -= 1
                 break # game is over.. nothing else for us to do..
 
-    return progressing_board
+    if i == steps: return progressing_board
+    return None
 
-if __name__ == "__main__": # running as main will run random testing/debug stuff
-    # testEntry = get_database_entry("6094896675755.898", "1769177501821", "1769089891879")
-    testEntry = get_database_entry("7478532506737.593", "1770053639277", "1769089890391")
-    print(testEntry)
 
-    print("DA BOARD")
-    print(board_generate(9, 9, 10, testEntry["seed"]))
+def entry_to_filename(entry):
+    pid = entry["userIDpriv"]
+    seed = entry["seed"]
+    timestamp = entry["timestamp"]
+    return f"testData/dataPreprocesses/{seed}_{timestamp}_{pid}.json"
 
-    print(testEntry["actionRecords"])
-    for i in range(len(testEntry["actionRecords"])+1): # i is an index, but resimulate takes a count
+def store_preprocess(entry, action_analyses, overwrite=False):
+    filename = entry_to_filename(entry)
+    if os.path.exists(filename) and not overwrite:
+        print(f"file {filename} already present.. skipping")
+        return
+
+    # remove tuples since json doesnt like them
+    # WARN: assumes 9x9 minesweeper field.
+
+    action_analyses = [[{(key[0]+key[1]*9):val  for key, val in phase.items()} for phase in actionStep] for actionStep in action_analyses]
+
+    json_str = json.dumps(action_analyses, indent=4)
+    print(f"{filename=}")
+    with open(filename, "w") as f:
+        f.write(json_str)
+
+def load_preprocessed(entry):
+    filename = entry_to_filename(entry)
+    if not os.path.exists(filename):
+        print(f"file {filename} doesnt exist..")
+        return None
+
+    with open(filename) as f:
+        data = json.load(f)
+
+        # for actionStep in data:
+        #     for phase in actionStep:
+        #         print(phase)
+
+        return [[{(int(key)%9, int(key)//9):val  for key, val in phase.items()} for phase in actionStep] for actionStep in data]
+
+
+def process_entry(entry, doPrint=False):
+    if not doPrint:
+        print_storage = print
+        # print = lambda *args, **kwargs: None
+
+    action_analyses = []
+    start_time = datetime.datetime.now()
+    start_time_str = start_time.strftime("%Y-%m-%d %H:%M:%S")
+    for i in range(len(entry["actionRecords"])+1): # i is an index, but resimulate takes a count
         print(f"the game after {i} moves:")
 
-        current_board = resimulate_partial_submission(testEntry, i)
-        # for row in current_board:
-        #     for num in row:
-        #         print(num, end="")
-        #     print()
-        print()
-
+        current_board = resimulate_partial_submission(entry, i)
+        if current_board is None:
+            print("reached end of gameplay")
+            break
 
         domains = minesweeperModel.create_domains(current_board)
         constraints = minesweeperModel.build_constraints(current_board, domains)
 
-        # domain = solverAlgs.relationalArcConsistency(domain, constraints, rac_i=1, rac_m=1)
-
-        # minesweeperModel.renderDomains(domain, current_board)
-        # # for row in current_board:
-        # #     print(row)
-
-        # # print()
-        # # print()
-
         domainsArr = [domains]
         for i in range(3):
-            if i == 0: domains = solverAlgs.relationalArcConsistency(domainsArr[0], constraints, rac_i=1, rac_m=1)
-            elif i == 1: domains = solverAlgs.relationalArcConsistency(domainsArr[0], constraints, rac_i=1, rac_m=2)
-            elif i == 2: domains = solverAlgs.relationalArcConsistency(domainsArr[0], constraints, rac_i=1, rac_m=3)
-            else: domains = solverAlgs.relationalArcConsistency(domainsArr[0], constraints, rac_i=1, rac_m=3)
+            domains = domainsArr[0]
+            constraints = minesweeperModel.build_constraints(current_board, domains)
+
+            if i == 0: domains = solverAlgs.relationalArcConsistency(domains, constraints, rac_i=1, rac_m=1)
+            elif i == 1: domains = solverAlgs.relationalArcConsistency(domains, constraints, rac_i=1, rac_m=2)
+            elif i == 2: domains = solverAlgs.relationalArcConsistency(domains, constraints, rac_i=1, rac_m=3)
+            else: domains = solverAlgs.relationalArcConsistency(domains, constraints, rac_i=2, rac_m=3)
 
             domainsArr.append(domains)
 
+        action_analyses.append(domainsArr)
+        minesweeperModel.phaseRenderDomains(domainsArr, current_board)
+        print(f"at {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} (started {start_time_str}) (taking {round((datetime.datetime.now()-start_time).seconds//60, 3)}m {(datetime.datetime.now()-start_time).seconds % 60}s)", end="\r")
+        print()
+
+    return action_analyses
+
+
+
+
+def preprocess_all_entries(threadCount, threadID):
+    for i, entry in enumerate(get_all_database_content()):
+        if i%threadCount != threadID:
+            continue
+
+        action_analyses = load_preprocessed(entry)
+        if (action_analyses is None): action_analyses = process_entry(entry)
+
+        for i, domainsArr in enumerate(action_analyses):
+            current_board = resimulate_partial_submission(entry, i)
+            print(f"the game after {i} moves:")
+            minesweeperModel.phaseRenderDomains(domainsArr, current_board)
+
+
+        store_preprocess(entry, action_analyses)
+
+
+if __name__ == "__main__": # running as main will run random testing/debug stuff
+
+    # assumes the first arg is thread count, and 2nd arg is our thread ID.
+    # multi-processing is done manually by openning many terminal windows and running this script in each window with a new ID given to each instance.
+    # note that we all read the same userData.json, so it's technically possible two of us will try to read it at the same time when we're initially spinning up, but that is highly unlikely.
+    preprocess_all_entries(int(sys.argv[1]), int(sys.argv[2]))
+    exit()
+
+    testEntry = get_database_entry("7478532506737.593", "1770053639277", "1769089890391")
+
+    action_analyses = load_preprocessed(testEntry)
+    if (action_analyses is None): action_analyses = process_entry(testEntry)
+
+    for i, domainsArr in enumerate(action_analyses):
+        current_board = resimulate_partial_submission(testEntry, i)
+        print(f"the game after {i} moves:")
         minesweeperModel.phaseRenderDomains(domainsArr, current_board)
 
-    # print(board_generate(9, 9, 10, testEntry["seed"]))
+
+    store_preprocess(testEntry, action_analyses)
