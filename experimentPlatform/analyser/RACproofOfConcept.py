@@ -53,12 +53,12 @@ minesweeperModel.phaseRenderDomains(domainsArr, hints)
 
 
 for i in range(3):
-    # domains = solverAlgs.generalizedArcConsistency(domainsArr[-1], constraints, hints)
-    # domains = solverAlgs.relationalArcConsistency(domainsArr[-1], constraints, hints)
-    if i == 0: domains = solverAlgs.relationalArcConsistency(domainsArr[-1], constraints, rac_i=1, rac_m=1)
-    elif i == 1: domains = solverAlgs.relationalArcConsistency(domainsArr[-1], constraints, rac_i=1, rac_m=2)
-    elif i == 2: domains = solverAlgs.relationalArcConsistency(domainsArr[-1], constraints, rac_i=1, rac_m=3)
-    # else: domains = solverAlgs.relationalArcConsistency(domainsArr[0], constraints, rac_i=1, rac_m=4)
+    domains = domainsArr[0]
+    constraints = minesweeperModel.build_constraints(hints, domains)
+    if i == 0: domains = solverAlgs.relationalArcConsistency(domains, constraints, rac_i=1, rac_m=1)
+    elif i == 1: domains = solverAlgs.relationalArcConsistency(domains, constraints, rac_i=1, rac_m=2)
+    elif i == 2: domains = solverAlgs.relationalArcConsistency(domains, constraints, rac_i=1, rac_m=3)
+    else: domains = solverAlgs.relationalArcConsistency(domains, constraints, rac_i=2, rac_m=3)
 
     domainsArr.append(domains)
     print(f"domains after {i+1} attempts:")
