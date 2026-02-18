@@ -89,6 +89,122 @@ def plot_submissions_per_person(database_entries, database_entries_successful):
     plt.legend()
     plt.show(block=False)
 
+def plot_avg_percent_difference_per_person(database_entries, userPRIV_to_pub, seed_3bv_lookup, successful_only=True, time_unit="s", min_fields_per_person=2, min_attempts_per_field=1, sort_by_metric=True):
+    """
+    For each person:
+      1) Compute their average solve time on each field (3bv).
+      2) Compute the global average solve time for that field.
+      3) For each field they played, compute percent difference:
+            100 * (person_field_avg - global_field_avg) / global_field_avg
+      4) Person metric = average of their field-level percent differences.
+
+    Plots one bar per person (label=userIDpub, grouping=userIDpriv).
+
+    Notes:
+    - Uses seed->3bv mapping for fields.
+    - Handles multiple attempts per field by averaging within person/field first.
+    """
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    # Collect (user_priv, threebv, duration)
+    rows = []
+    for e in database_entries:
+        try:
+            if successful_only and not e.get("successful", False):
+                continue
+            seed = str(e["seed"])
+            threebv = seed_3bv_lookup.get(seed, None)
+            if threebv is None:
+                continue
+            dur = float(e["duration"])
+            if time_unit == "s":
+                dur /= 1000.0
+            elif time_unit == "ms":
+                pass
+            else:
+                raise ValueError("time_unit must be 's' or 'ms'")
+            user_priv = e["userIDpriv"]
+            rows.append((user_priv, int(threebv), dur))
+        except Exception:
+            continue
+
+    if len(rows) == 0:
+        print("No valid rows to compute metrics.")
+        return
+
+    users = np.array([r[0] for r in rows], dtype=object)
+    fields = np.array([r[1] for r in rows], dtype=int)
+    durs = np.array([r[2] for r in rows], dtype=float)
+
+    # ---- Global averages per field ----
+    uniq_fields, inv_f = np.unique(fields, return_inverse=True)  # unique + inverse mapping [web:236]
+    global_sum = np.bincount(inv_f, weights=durs)
+    global_cnt = np.bincount(inv_f)
+    global_avg = global_sum / np.maximum(global_cnt, 1)
+
+    global_avg_by_field = {int(f): float(global_avg[i]) for i, f in enumerate(uniq_fields)}
+
+    # ---- Person-field averages ----
+    # group key = (user_priv, field)
+    pair_keys = np.array([f"{u}|||{fld}" for u, fld in zip(users, fields)], dtype=object)
+    uniq_pairs, inv_p = np.unique(pair_keys, return_inverse=True)  # [web:236]
+    pair_sum = np.bincount(inv_p, weights=durs)
+    pair_cnt = np.bincount(inv_p)
+
+    pair_avg = pair_sum / np.maximum(pair_cnt, 1)
+
+    # Build mapping user -> list of percent diffs (one per field they played enough)
+    user_to_diffs = {}
+
+    for i, pair in enumerate(uniq_pairs):
+        u, fld_str = pair.split("|||")
+        fld = int(fld_str)
+
+        # enforce min attempts per field for that user/field
+        if pair_cnt[i] < min_attempts_per_field:
+            continue
+
+        gavg = global_avg_by_field.get(fld, None)
+        if gavg is None or gavg == 0:
+            continue
+
+        pdiff = 100.0 * (pair_avg[i] - gavg) / gavg
+        user_to_diffs.setdefault(u, []).append(float(pdiff))
+
+    # Final person metric = mean of their field diffs (only if enough fields)
+    labels = []
+    metrics = []
+    for u, diffs in user_to_diffs.items():
+        if len(diffs) < min_fields_per_person:
+            continue
+        labels.append(userPRIV_to_pub.get(u, f"undef:{u}"))
+        metrics.append(float(np.mean(diffs)))
+
+    if len(metrics) == 0:
+        print("No users met min_fields_per_person / min_attempts_per_field.")
+        return
+
+    labels = np.array(labels, dtype=object)
+    metrics = np.array(metrics, dtype=float)
+
+    if sort_by_metric:
+        order = np.argsort(metrics)  # ascending (more negative = faster than global)
+        labels = labels[order]
+        metrics = metrics[order]
+
+    plt.figure(figsize=(12, 6))
+    plt.bar(labels, metrics, color="royalblue", edgecolor="black")  # bar chart [web:143]
+    plt.axhline(0, color="black", linewidth=1)
+    plt.ylabel(f"Avg % difference vs global ({time_unit})")
+    plt.xlabel("Person")
+    plt.title("Avg percent difference from global field averages (lower is faster)")
+    plt.xticks(rotation=45, ha="right")
+    plt.grid(axis="y", alpha=0.25)
+    plt.tight_layout()
+    plt.show(block=False)
+
+
 
 def plot_submissions_per_userAGENT(database_entries):
     """
@@ -924,12 +1040,7 @@ def plot_far_when_close_available(database_entries, preprocesses, userPRIV_to_pu
     plt.show(block=False)
 
 
-def plot_hard_when_easy_available(database_entries, preprocesses, userPRIV_to_pub,
-                                  mode="all_people", target_user_priv=None,
-                                  hard_threshold=2,
-                                  use_pre_action_state=True,
-                                  ignore_first_action=True,
-                                  min_events=10):
+def plot_hard_when_easy_available(database_entries, preprocesses, userPRIV_to_pub, mode="all_people", target_user_priv=None, hard_threshold=2, use_pre_action_state=True, ignore_first_action=True):
     """
     % of times chosen move was "hard" while an "easier (and no farther)" move existed.
 
@@ -979,15 +1090,12 @@ def plot_hard_when_easy_available(database_entries, preprocesses, userPRIV_to_pu
             continue
 
         oid = entry.get("_id", {}).get("$oid", None)
-        if oid is None:
-            continue
+        if oid is None: continue
         action_analyses = preprocesses.get(oid, None)
-        if action_analyses is None:
-            continue
+        if action_analyses is None: continue
 
         actions = entry.get("actionRecords", [])
-        if actions is None or len(actions) < 2:
-            continue
+        if actions is None or len(actions) < 2: continue
         actions = sorted(actions, key=lambda r: int(r.get("timestamp", 0)))
 
         if mode == "all_people":
@@ -1004,22 +1112,18 @@ def plot_hard_when_easy_available(database_entries, preprocesses, userPRIV_to_pu
         for j in range(start_idx, len(actions)):
             prev = actions[j - 1]
             act = actions[j]
-            if "x" not in prev or "y" not in prev or "x" not in act or "y" not in act:
-                continue
+            if "x" not in prev or "y" not in prev or "x" not in act or "y" not in act: continue
 
             prev_xy = (int(prev["x"]), int(prev["y"]))
             chosen_xy = (int(act["x"]), int(act["y"]))
 
             step_idx = j if use_pre_action_state else (j + 1)
-            if step_idx < 0 or step_idx >= len(action_analyses):
-                continue
+            if step_idx < 0 or step_idx >= len(action_analyses): continue
 
             domainsArr = action_analyses[step_idx]
-            if domainsArr is None or len(domainsArr) == 0:
-                continue
+            if domainsArr is None or len(domainsArr) == 0: continue
             final_domains = domainsArr[-1]
-            if final_domains is None:
-                continue
+            if final_domains is None: continue
 
             chosen_d = move_difficulty_at_xy(domainsArr, chosen_xy)
             if chosen_d is None:
@@ -1037,15 +1141,13 @@ def plot_hard_when_easy_available(database_entries, preprocesses, userPRIV_to_pu
                     continue
 
                 cand_d = move_difficulty_at_xy(domainsArr, cand_xy)
-                if cand_d is None:
-                    continue
+                if cand_d is None: continue
 
                 if cand_d < chosen_d and euclid(prev_xy, cand_xy) <= d_chosen:
                     easier_exists = True
                     break
 
-            if not easier_exists:
-                continue  # not in denominator
+            if not easier_exists: continue  # not in denominator
 
             stats[key][1] += 1
             if chosen_d >= hard_threshold:
@@ -1055,27 +1157,20 @@ def plot_hard_when_easy_available(database_entries, preprocesses, userPRIV_to_pu
     numer = np.array([stats[k][0] for k in keys], dtype=float)
     denom = np.array([stats[k][1] for k in keys], dtype=float)
 
-    keep = denom >= float(min_events)
-    keys = [k for k, ok in zip(keys, keep) if ok]
-    numer = numer[keep]
-    denom = denom[keep]
-
     if len(keys) == 0:
         print("No keys with enough events to plot.")
         return
 
     pct = (numer / denom) * 100.0
 
-    if mode == "one_person_by_map":
-        pairs = sorted(list(zip(keys, pct)), key=lambda t: t[0])
-        keys = [p[0] for p in pairs]
-        pct = np.array([p[1] for p in pairs], dtype=float)
-
     if mode == "all_people":
         labels = [userPRIV_to_pub.get(k, f"undef:{k}") for k in keys]
         title = "Percent hard moves when an easier (and no farther) move existed (by person)"
         xlabel = "Person"
     else:
+        pairs = sorted(list(zip(keys, pct)), key=lambda t: t[0])
+        keys = [p[0] for p in pairs]
+        pct = np.array([p[1] for p in pairs], dtype=float)
         labels = [str(k) for k in keys]
         who = userPRIV_to_pub.get(target_user_priv, f"undef:{target_user_priv}")
         title = f"Percent hard moves when an easier (and no farther) move existed (by field 3bv) – {who}"
@@ -1118,6 +1213,9 @@ plot_min_solve_time_per_field(database_entries_successful)
 test_users = [key for key, val in userPRIV_to_pub.items() if val in ["andreiBrowser", "Duncan", "Alpaca"]]
 plot_avg_solve_time_per_field_per_person(database_entries_successful, test_users, userPRIV_to_pub)
 
+plot_avg_percent_difference_per_person(database_entries, userPRIV_to_pub, seed_3bv_lookup, successful_only=True, time_unit="s")
+
+
 plt.pause(0.001)
 input("Press [enter] for the next set of graphs")
 plt.close('all')
@@ -1143,9 +1241,8 @@ input("Press [enter] for the next set of graphs")
 plt.close('all')
 
 
-# plot_move_time_histogram(database_entries, userPRIV_to_pub, only_seed=None, only_user_priv=one_user_priv, bins=30, time_unit="s", clip_max=10)
-# plot_move_time_histogram(database_entries, userPRIV_to_pub, only_seed=None, only_user_priv=None, bins=30, time_unit="s", clip_max=10)
-
+#  (experienced) players playing faster
+#  (naive) players playing slower
 plot_move_time_histogram_overlaid(database_entries, userPRIV_to_pub, only_seed=None, users=[None, maxine], bins=30, time_unit="s", clip_max=10)
 plot_move_time_histogram_overlaid(database_entries, userPRIV_to_pub, only_seed=None, users=[None, duncan], bins=30, time_unit="s", clip_max=10)
 plot_move_time_histogram_overlaid(database_entries, userPRIV_to_pub, only_seed=None, users=[None, andrei], bins=30, time_unit="s", clip_max=10)
@@ -1179,13 +1276,25 @@ for entry in database_entries:
 plot_move_difficulty_histogram(database_entries, preprocesses, userPRIV_to_pub, only_seed=None, only_user_priv=one_user_priv, bins=30)
 plot_move_difficulty_histogram(database_entries, preprocesses, userPRIV_to_pub, only_seed=None, only_user_priv=None, bins=30)
 
-plot_far_when_close_available(database_entries, preprocesses, userPRIV_to_pub, mode="one_person_by_map", target_user_priv=one_user_priv, close_radius=1.5, far_radius=2.5, min_events=10)
-plot_far_when_close_available(database_entries, preprocesses, userPRIV_to_pub, mode="all_people", close_radius=1.5, far_radius=2.5, min_events=10)
+plot_far_when_close_available(database_entries, preprocesses, userPRIV_to_pub, mode="one_person_by_map", target_user_priv=one_user_priv, close_radius=1.5, far_radius=2.5, min_events=0)
+plot_far_when_close_available(database_entries, preprocesses, userPRIV_to_pub, mode="all_people", close_radius=1.5, far_radius=2.5, min_events=0)
 
 
-plot_hard_when_easy_available(database_entries, preprocesses, userPRIV_to_pub, mode="one_person_by_map", target_user_priv=one_user_priv, hard_threshold=2, min_events=10)
-plot_hard_when_easy_available(database_entries, preprocesses, userPRIV_to_pub, mode="all_people", hard_threshold=2, min_events=25)
+# these graphs should indicate
+#  (experienced) players intentionally "skipping" easy moves for hard moves
+# and..
+#  (naive) players accidentally skipping hard moves because they're unaware
+plot_hard_when_easy_available(database_entries, preprocesses, userPRIV_to_pub, mode="one_person_by_map", target_user_priv=one_user_priv, hard_threshold=2)
+plot_hard_when_easy_available(database_entries, preprocesses, userPRIV_to_pub, mode="all_people", hard_threshold=2)
 
 plt.pause(0.001)
 input("Press [enter] to terminate.")
 plt.close('all')
+
+# per-map distribution of move difficulties.
+plot_avg_field_difficulties(database_entries, preprocesses)
+
+
+#  (experienced) players placing a "hard" flag, so they can use a chord more efficiently (should be more common in low 3bv fields? high 3bv fields require many clicks by nature so there's less benefit to flagging)
+#  what action is taken when there's no lvl 1. moves available?
+# average time spent per move difficulty.
