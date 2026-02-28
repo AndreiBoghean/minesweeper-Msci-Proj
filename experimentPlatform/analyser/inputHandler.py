@@ -385,7 +385,7 @@ def process_entry(entry, doPrint=False):
 
 
 
-def preprocess_all_entries(threadCount, threadID):
+def preprocess_all_entries(threadCount=1, threadID=0):
     for i, entry in enumerate(get_all_database_content()):
         if i%threadCount != threadID:
             continue
