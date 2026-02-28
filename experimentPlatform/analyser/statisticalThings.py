@@ -70,6 +70,9 @@ def _seed_label(seed):
 def _user_label(user_priv):
     return userPRIV_to_pub.get(user_priv, f"undef:{user_priv}")
 
+def _user_pub_to_priv(user_pub):
+    return [k for k, v in userPRIV_to_pub.items() if v == user_pub][0]
+
 def _sorted_actions(entry):
     actions = entry.get("actionRecords", [])
     if actions is None:
@@ -105,6 +108,21 @@ def _move_difficulty_at_xy(domainsArr, xy):
             return i
     return None
 
+name_order = [_user_pub_to_priv("andreiBrowser"), _user_pub_to_priv("Duncan")]
+
+def custom_name_order(vals):
+    if False: # hook to disable reordering
+        return vals, list(range(len(vals)))
+
+    new_layout = sorted(vals, key=lambda s: name_order.index(s) if s in name_order else len(vals))
+    temp_vals = list(vals)
+    new_positions = [temp_vals.index(val) for val in new_layout]
+    return new_layout, new_positions
+
+def rearange_name_data(xAxis, yAxis):
+    _, new_indices = custom_name_order(xAxis)
+    return np.array(xAxis)[new_indices], np.array(yAxis)[new_indices]
+
 
 # ---------------------------- Graphs ----------------------------
 
@@ -117,8 +135,10 @@ def plot_submissions_per_person(database_entries, database_entries_successful, p
 
     user_ids = [entry["userIDpriv"] for entry in database_entries]
     unique_users, all_counts = np.unique(user_ids, return_counts=True)
-    labels = [_user_label(u) for u in unique_users]
-    plt.bar(labels, all_counts / all_counts if percentage else all_counts, color="red", edgecolor="black")
+
+    allUser_labels = unique_users
+    allUser_data = all_counts / all_counts if percentage else all_counts
+
 
     user_ids = [entry["userIDpriv"] for entry in database_entries_successful]
     _, counts = np.unique(user_ids, return_counts=True)
@@ -132,9 +152,28 @@ def plot_submissions_per_person(database_entries, database_entries_successful, p
             final_counts.append(0)
             offset += 1
     counts = np.array(final_counts)
+    if percentage: counts = counts / all_counts
 
-    labels = [_user_label(u) for u in unique_users]
-    plt.bar(labels, counts / all_counts if percentage else counts, color="green", edgecolor="black")
+    sucUser_labels = unique_users
+    sucUser_data = np.array(counts)
+
+    # sort the data for all submissions
+    # _, new_positions = custom_name_order(allUser_labels)
+    # allUser_labels = allUser_labels[new_positions]
+    # allUser_labels = [_user_label(u) for u in allUser_labels]
+    # allUser_data = allUser_data[new_positions]
+    allUser_labels, allUser_data = rearange_name_data(allUser_labels, allUser_data)
+    allUser_labels = [_user_label(u) for u in allUser_labels]
+    plt.bar(allUser_labels, allUser_data, label="all submissions", color="red", edgecolor="black")
+
+    # sort the data for all submissions
+    # _, new_positions = custom_name_order(sucUser_labels)
+    # sucUser_labels = sucUser_labels[new_positions]
+    # sucUser_labels = [_user_label(u) for u in sucUser_labels]
+    # sucUser_data = sucUser_data[new_positions]
+    sucUser_labels, sucUser_data = rearange_name_data(sucUser_labels, sucUser_data)
+    sucUser_labels = [_user_label(u) for u in sucUser_labels]
+    plt.bar(sucUser_labels, sucUser_data, label="successful only", color="green", edgecolor="black")
 
     plt.xlabel("User")
     plt.ylabel("Number of submissions")
@@ -165,6 +204,7 @@ def plot_submissions_per_field_3bv(database_entries, database_entries_successful
     Bar chart: number of submissions per field (x axis = 3bv, via seed_3bv_lookup).
     """
     plt.figure(figsize=(10, 6))
+    print("\n\n")
 
     fields = []
     for entry in database_entries:
@@ -199,9 +239,6 @@ def plot_submissions_per_field_3bv(database_entries, database_entries_successful
 
     unique_fields, counts = np.unique(fields, return_counts=True)
     plt.bar(unique_fields, (counts / all_counts) if percentage else counts, label="successful only", color="green", edgecolor="black")
-    print(counts)
-    print(all_counts)
-    print(f"{counts/all_counts=}")
 
     plt.xlabel("Field (3bv)")
     plt.ylabel("Number of submissions")
@@ -761,10 +798,12 @@ def plot_far_when_close_available(database_entries, preprocesses, userPRIV_to_pu
         pct = np.array([p[1] for p in pairs], dtype=float)
 
     if mode == "all_people":
+        keys, pct = rearange_name_data(keys, pct)
         labels = [_user_label(k) for k in keys]
         title = "Percent far moves when a close solvable move existed (by person)"
         xlabel = "Person"
     else:
+        keys, pct = rearange_name_data(keys, pct)
         labels = [str(k) for k in keys]
         who = _user_label(target_user_priv)
         title = f"Percent far moves when a close solvable move existed (by field 3bv) – {who}"
@@ -878,6 +917,7 @@ def plot_hard_when_easy_available(database_entries, preprocesses, userPRIV_to_pu
     pct = (numer / denom) * 100.0
 
     if mode == "all_people":
+        keys, pct = rearange_name_data(keys, pct)
         labels = [_user_label(k) for k in keys]
         title = "Percent hard moves when an easier (and no farther) move existed (by person)"
         xlabel = "Person"
