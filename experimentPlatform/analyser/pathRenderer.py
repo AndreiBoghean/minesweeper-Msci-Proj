@@ -71,7 +71,9 @@ if __name__ == "__main__": # running as main will run random testing/debug stuff
         # print(cell_open_timestamps)
         # print(np.max(cell_open_timestamps))
         cell_open_timestamps = cell_open_timestamps / np.max(cell_open_timestamps)
-        hints = inputHandler.resimulate_partial_submission(entry, -1, doPrint = False)
+        # hints = inputHandler.resimulate_partial_submission(entry, -1, doPrint = False)
+        hints = inputHandler.board_generate(9, 9, 10, entry["seed"])
+        hints[hints == -1] = 9
         # minesweeperModel.phaseRenderDomains(action_analyses[-1], hints)
         minesweeperModel.renderShadedField(action_analyses[-1], hints, cell_open_timestamps)
 
