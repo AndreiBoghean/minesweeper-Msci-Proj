@@ -258,7 +258,11 @@ def chord(progressing_board, uncovered_board, cellX, cellY):
 # note that we want this to give us in a form that solverAlgs likes. that is - 0-9 for hints and 9 for a hidden cell.
 # problem: what happens when a mine appears? I'm going to need to represent it..
 # for now.. I'll just make it -1 , and hope it shouldnt ever be a problem because solverAlgs shouldnt ever get run on a field with a mine, because at that point the game is over and there is no subsequent move.
-def resimulate_partial_submission(submission, steps):
+def resimulate_partial_submission(submission, steps, doPrint = True):
+    if not doPrint:
+        # print_storage = print
+        print = lambda *args, **kwargs: None
+
     # note.. what am I going to make this method do? it will contain just hints and mines.
     # that will be 0-9 for hints, and probablly also -1 for mines.
     uncovered_board = board_generate(9, 9, 10, submission["seed"]) # assumed 9x9 field with 10 mines; HACK: submission seed should be float if we were doing a real RNG, but because of javascript flaot wierdness we're using a string
@@ -302,7 +306,7 @@ def resimulate_partial_submission(submission, steps):
                 i -= 1
                 break # game is over.. nothing else for us to do..
 
-    if i == steps: return progressing_board
+    if i == steps or steps == -1: return progressing_board
     return None
 
 
