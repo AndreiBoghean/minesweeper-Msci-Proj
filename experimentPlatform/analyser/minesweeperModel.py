@@ -1,3 +1,5 @@
+import matplotlib
+
 ####################################### DOMAINS
 
 def create_domains(hints):
@@ -60,8 +62,10 @@ def phaseRenderDomains(domainsArr, hints):
     colGRAY = '\033[90m'
     hcolGRAY = '\033[100m'
     hbcolGRAY = '\033[100;5m'
-    colPURPLE = '\033[95m'
-    hcolPURPLE = '\033[105m'
+    colPURPLE = '\033[35m'
+    hcolPURPLE = '\033[45m'
+    colPINK = '\033[95m'
+    hcolPINK = '\033[105m'
     colRED = '\033[91m'
     hcolRED = '\033[101m'
     hbcolRED = '\033[101;5m'
@@ -90,7 +94,7 @@ def phaseRenderDomains(domainsArr, hints):
             # if something if an open cell, we check what domainArr it was opened in
             # if something is a mine, we check what domainArr it was mined in.
             # and that's how we decide which colour to use.
-            options = [hcolGRAY, hcolBLUE, hcolGREEN, hcolYELLOW, hcolRED]
+            options = [hcolGRAY, hcolBLUE, hcolGREEN, hcolYELLOW, hcolRED, hcolPINK, hcolPURPLE]
             option = options[0]
 
 
@@ -121,6 +125,73 @@ def phaseRenderDomains(domainsArr, hints):
                 print(colRED + "Q", end=colRESTORE)
         print()
 
+
+
+def renderShadedField(domainsArr, hints, ratios): # default rgb is purple
+    colGRAY = '\033[90m'
+    hcolGRAY = '\033[100m'
+    hbcolGRAY = '\033[100;5m'
+    colPURPLE = '\033[35m'
+    hcolPURPLE = '\033[45m'
+    colPINK = '\033[95m'
+    hcolPINK = '\033[105m'
+    colRED = '\033[91m'
+    hcolRED = '\033[101m'
+    hbcolRED = '\033[101;5m'
+    colRESTORE = '\033[0m'
+
+    colBLUE = '\033[34m'
+    hcolBLUE = '\033[44m'
+    hbcolBLUE = '\033[44;5m'
+    colGREEN = '\033[32m'
+    hcolGREEN = '\033[42m'
+    hbcolGREEN = '\033[42;5m'
+    colYELLOW = '\033[33m'
+    hcolYELLOW = '\033[43m'
+    hbcolYELLOW = '\033[43;5m'
+
+    colUNDERLINE = '\033[4m'
+
+    def arbiAnsiBg(r, g, b):
+        return f"\033[48;2;{r};{g};{b}m"
+
+    cmap = matplotlib.cm.get_cmap('Spectral')
+    cmap = matplotlib.cm.get_cmap('plasma').reversed()
+    cmap = matplotlib.cm.get_cmap('cool')
+    cmap = matplotlib.cm.get_cmap('turbo')
+    cmap = matplotlib.cm.get_cmap('rainbow')
+    cmap = matplotlib.cm.get_cmap('gist_rainbow')
+
+    index_reprs = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    print(colUNDERLINE + " |" + "".join([index_reprs[i] for i in range(len(hints[0]))]) + colRESTORE)
+
+    for y, row in enumerate(hints):
+        print(f"{index_reprs[y]}|", end="")
+        for x, cell in enumerate(row):
+            # presume we're given 4 items in domainsArr: original, algorithm1, algorithm2, algorithm3.
+            # anything uncovered by an algorithm will uncover either an open cell (hint==9) or a mine (domain=[False,True]).
+            # if something if an open cell, we check what domainArr it was opened in
+            # if something is a mine, we check what domainArr it was mined in.
+            # and that's how we decide which colour to use.
+            perc = ratios[y][x]
+            option = arbiAnsiBg(int(cmap(perc)[0]*255), int(cmap(perc)[1]*255), int(cmap(perc)[2]*255));
+
+            if domainsArr[-1][(x, y)] == [True, True]: print(hcolGRAY + "?", end=colRESTORE)
+            elif domainsArr[-1][(x, y)] == [False, True]: print("X", end=colRESTORE)
+            # elif domainsArr[-1][(x, y)] == [True, False]: print(option + str(hints[y, x]), end=colRESTORE)
+            elif domainsArr[-1][(x, y)] == [True, False]: print(option + " ", end=colRESTORE)
+            else: print(colRED + "Q", end=colRESTORE)
+
+        print()
+
+    all_percs = set()
+    for row in ratios:
+        for perc in row:
+            all_percs.add(perc)
+    for perc in sorted(list(all_percs)):
+        option = arbiAnsiBg(int(cmap(perc)[0]*255), int(cmap(perc)[1]*255), int(cmap(perc)[2]*255));
+        print(option + " ", end=colRESTORE)
+
 ####################################### CONSTRAINTS
 
 ######### CONSTRAINT HELPERS.. these make little sense on their own.. look at the constraints section first.
@@ -131,6 +202,10 @@ def phaseRenderDomains(domainsArr, hints):
 
 def spot_pick(arrangementTemplate, leftI, spotN): # assumes spotN is at least 1; leftI is within bounds.
     arrangements = []
+
+    # if spotN > 1:
+    #     arrangements = spot_pick(arrangementTemplate, leftI, spotN-1)
+
     for chosenI in range(leftI, len(arrangementTemplate)):
         # print("outer", chosenI, leftI, len(arrangementTemplate))
         newTemplate = arrangementTemplate[:] # duplicate array
