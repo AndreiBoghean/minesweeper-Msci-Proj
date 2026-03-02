@@ -5,6 +5,7 @@ import json
 import datetime
 import os
 import sys
+import builtins
 
 import minesweeperModel
 import solverAlgs
@@ -164,10 +165,11 @@ def get_test_input():
 # probably not.. there's no need for experimentation. we just need a local dataset to test-run statistics,
 # and when we do the big "final" statitsics run, we will just download the whole dataset manually.
 
+manual_outliers = [ "6973872c367b629e6f5b347b", "69774c13367b629e6f5b3494", "69778783367b629e6f5b3515", "6978a206a91d7db7b45cdeaf", "697b3e7ca91d7db7b45cdeca", "697c61caa91d7db7b45cdf05", "697c61caa91d7db7b45cdf06" ]
 def get_all_database_content():
     with open("testData/testData.json") as f:
         jayson = json.load(f)
-        return jayson
+        return list(filter(lambda x: x["_id"]["$oid"] not in manual_outliers, jayson))
 
 def get_database_entry(userIDpriv, timestamp, seed): # note: IDpriv, timestamp, seed makes up our internal primary key for user submissions.
     database_data = get_all_database_content()
@@ -260,8 +262,9 @@ def chord(progressing_board, uncovered_board, cellX, cellY):
 # for now.. I'll just make it -1 , and hope it shouldnt ever be a problem because solverAlgs shouldnt ever get run on a field with a mine, because at that point the game is over and there is no subsequent move.
 def resimulate_partial_submission(submission, steps, doPrint = True):
     if not doPrint:
-        # print_storage = print
         print = lambda *args, **kwargs: None
+    else:
+        print = builtins.print
 
     # note.. what am I going to make this method do? it will contain just hints and mines.
     # that will be 0-9 for hints, and probablly also -1 for mines.
@@ -350,8 +353,9 @@ def load_preprocessed(entry):
 
 def process_entry(entry, doPrint=False):
     if not doPrint:
-        print_storage = print
-        # print = lambda *args, **kwargs: None
+        print = lambda *args, **kwargs: None
+    else:
+        print = builtins.print
 
     action_analyses = []
     start_time = datetime.datetime.now()
@@ -411,16 +415,17 @@ if __name__ == "__main__": # running as main will run random testing/debug stuff
     # assumes the first arg is thread count, and 2nd arg is our thread ID.
     # multi-processing is done manually by openning many terminal windows and running this script in each window with a new ID given to each instance.
     # note that we all read the same userData.json, so it's technically possible two of us will try to read it at the same time when we're initially spinning up, but that is highly unlikely.
-    preprocess_all_entries(int(sys.argv[1]), int(sys.argv[2]))
-    exit()
+    # preprocess_all_entries(int(sys.argv[1]), int(sys.argv[2]))
+    # exit()
 
     testEntry = get_database_entry("7478532506737.593", "1770053639277", "1769089890391")
+    testEntry = get_database_entry("9051914951248.672", "1770392320640", "1769089890391")
 
     action_analyses = load_preprocessed(testEntry)
     if (action_analyses is None): action_analyses = process_entry(testEntry)
 
     for i, domainsArr in enumerate(action_analyses):
-        current_board = resimulate_partial_submission(testEntry, i)
+        current_board = resimulate_partial_submission(testEntry, i, doPrint=False)
         print(f"the game after {i} moves:")
         minesweeperModel.phaseRenderDomains(domainsArr, current_board)
 
