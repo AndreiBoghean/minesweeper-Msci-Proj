@@ -35,10 +35,7 @@ seed_3bv_lookup = {
 }
 reverse_seed_3bv_lookup = {threebv: seed for seed, threebv in seed_3bv_lookup.items()}
 
-def find_possible_moves(domainsArr, hints):
-    width = len(hints[0])
-    height = len(hints)
-
+def find_possible_moves(domainsArr, width, height):
     possible_moves_count = 0
     for y in range(height):
         for x in range(width):
@@ -53,26 +50,25 @@ def find_possible_moves(domainsArr, hints):
 
     return possible_moves_count
 
-# testEntry = inputHandler.get_database_entry("7478532506737.593", "1770053639277", "1769089890391")
-succEntry = None
+def do_entropy_stuff(threebv, entries, render=False, debug=False):
+    testField = threebv
 
-if __name__ == "__main__": # running as main will run random testing/debug stuff
-    testField = 13
-    if len(sys.argv) > 1: testField = int(sys.argv[1])
-    board_aggregator = [[-1 for x in range(9)] for y in range(9)]
+    succEntry = None
 
-    # hints = inputHandler.resimulate_partial_submission(testEntry, -1, doPrint = False)
-    hints = inputHandler.board_generate(9, 9, 10, reverse_seed_3bv_lookup[testField])
-    hints[hints == -1] = 9
+    fullBoard = inputHandler.board_generate(9, 9, 10, reverse_seed_3bv_lookup[testField])
+    height = len(fullBoard)
+    width = len(fullBoard[0])
 
-    for entry in inputHandler.get_all_database_content():
+    board_aggregator = [[-1 if fullBoard[y][x] == -1 else 0 for x in range(width)] for y in range(height)]
+    fullBoard [fullBoard == -1] = 9 # mask over the mines so they're hidden
 
-        # entry = testEntry
+    debug = debug or len(entries) < 3
+
+    for entry in entries:
         if seed_3bv_lookup[entry["seed"]] != testField: continue
         if not entry["successful"]: continue
 
-        if succEntry is None:
-            succEntry = entry
+        if succEntry is None: succEntry = entry
 
         action_analyses = inputHandler.load_preprocessed(entry)
 
@@ -90,12 +86,46 @@ if __name__ == "__main__": # running as main will run random testing/debug stuff
                     if current_boards[0][(x, y)] != last_boards[0][(x, y)]: # if the cell was opened..
                         moves_made += 1
 
+            local_entropy = np.zeros(np.shape(board_aggregator))
             for y in range(9):
                 for x in range(9):
                     if current_boards[0][(x, y)] != last_boards[0][(x, y)]: # if the cell was opened..
-                        board_aggregator[y][x] += find_possible_moves(current_boards, hints) - find_possible_moves(last_boards, hints) + moves_made
+                        # board_aggregator[y][x] += find_possible_moves(current_boards, hints) - find_possible_moves(last_boards, hints) + moves_made
+                        local_entropy[y][x] += find_possible_moves(current_boards, width, height) - find_possible_moves(last_boards, width, height) + moves_made
+            board_aggregator += local_entropy
+
+            if not debug: continue
+
+            print(f"loc entropy for {entry['userIDpriv']}, {entry["timestamp"]}, {entry["seed"]} is")
+            print(f"values are: {find_possible_moves(current_boards, width, height)=} -  {find_possible_moves(last_boards, width, height)=} {moves_made=}")
+            hints = inputHandler.resimulate_partial_submission(entry, i, doPrint=False)
+            minesweeperModel.phaseRenderDomains(current_boards, hints)
+            minesweeperModel.renderShadedField(inputHandler.load_preprocessed(succEntry)[-1], hints, local_entropy)
+            print(local_entropy)
 
     board_aggregator = board_aggregator / np.max(board_aggregator)
-    minesweeperModel.renderShadedField(inputHandler.load_preprocessed(succEntry)[-1], hints, board_aggregator)
 
+    if render: minesweeperModel.renderShadedField(inputHandler.load_preprocessed(succEntry)[-1], fullBoard, board_aggregator)
+    print(f"loc entropy for {succEntry['userIDpriv']}, {succEntry["timestamp"]}, {succEntry["seed"]} is")
+    print(succEntry)
+
+    return board_aggregator
+
+if __name__ != "__main__": # running as main will run random testing/debug stuff
+    exit()
+
+entries = inputHandler.get_all_database_content()
+
+testEntry = inputHandler.get_database_entry("7478532506737.593", "1770053639277", "1769089890391")
+testEntry = inputHandler.get_database_entry("9051914951248.672", "1770392320640", "1769089890391")
+testEntry = inputHandler.get_database_entry("6094896675755.898", "0", "1769089890404")
+# entries = [testEntry]
+
+
+if len(sys.argv) > 1: testFields = [int(sys.argv[1])]
+else: testFields = list(seed_3bv_lookup.values())
+
+for testField in testFields:
+    print(f"entropy for 3bv:{testField}")
+    do_entropy_stuff(testField, entries, render=True)
     print()
