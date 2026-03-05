@@ -7,9 +7,9 @@ def relationalArcConsistency(domains, constraints, rac_i=1, rac_m=1):
     # helper functions
     def RAC_consistencyCheck(victimVariables, constraint_domains):
         # reminder: this should just do R_A \union all_relation_domains.
-        
+
         # to do that, we filter constraint_domains down to A.
-        
+
         # and then, for each valid assignment to variables A,
         # we check it's permitted by the filtered constraint_domains
 
@@ -113,12 +113,14 @@ def relationalArcConsistency(domains, constraints, rac_i=1, rac_m=1):
 
     # first we build "m relations R_{S_1}, ..., R_{S_m} \in Q" as specified by line 3 of RC
     relations_masks = minesweeperModel.spot_pick([False]*len(constraints), 0, rac_m) # out of all relations, pick m different relations. (0 just means start from the leftmost.. just there since this is a recursive algorithm)
+
     relations_todos = [[i for i in range(len(constraints)) if relation_mask[i]] for relation_mask in relations_masks] # ayys is a set containing every subset A of size i in the Rs selection (i.e. it's the second half of line 3 of RC)
     # for i = None, we take that to mean unbounded, and adapt execution to do RAC{m} instead of RAC{i,m}.
     # all this is means is making i "unbounded", by setting it to (the size of the union thing) minus 1.
     if rac_i == None:
         rac_i = len(relations_masks)-1
 
+    board_configs_considered = 0
 
     last_print = 0
     rel_progress = -1
@@ -128,7 +130,7 @@ def relationalArcConsistency(domains, constraints, rac_i=1, rac_m=1):
         rel_progress += 1
 
         if (rel_progress-last_print) >= 0.001 * len(relations_todos):
-            print(f"RAC i={rac_i} m={rac_m}: {rel_progress}/{len(relations_todos)} = {str(round(rel_progress/len(relations_todos), 5)).ljust(8)} at {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} (started {start_time_str}) (taking {round((datetime.datetime.now()-start_time).seconds/60, 3)}m)", end="\r")
+            print(f"RAC i={rac_i} m={rac_m}: {board_configs_considered=} {rel_progress}/{len(relations_todos)} = {str(round(rel_progress/len(relations_todos), 5)).ljust(8)} at {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} (started {start_time_str}) (taking {round((datetime.datetime.now()-start_time).seconds//60, 3)}m {(datetime.datetime.now()-start_time).seconds%60}s)", end="\r")
             last_print = rel_progress
 
         # # NOTEL sanity check: validating that inner join A, A = A
@@ -143,6 +145,7 @@ def relationalArcConsistency(domains, constraints, rac_i=1, rac_m=1):
         relation_selection_units = [(constraints[relation_ID], minesweeperModel.constraintToVariables(constraints, relation_ID)) for relation_ID in relation_selection]
         starter_item = relation_selection_units.pop()
         all_relation_domains, all_relation_variables = foldl(starter_item, inner_join, relation_selection_units)
+        board_configs_considered += len(all_relation_domains)
 
 
         relVars_masks = minesweeperModel.spot_pick([False]*len(all_relation_variables), 0, rac_i) # out of the m options in the current relation selection, pick i spots. (0 just means start from the leftmost.. just there since this is a recursive algorithm)
@@ -169,7 +172,7 @@ def relationalArcConsistency(domains, constraints, rac_i=1, rac_m=1):
                 # new_constraint = []
                 # if acceptedLabels[0]: new_constraint.append({todoX: 0})
                 # if acceptedLabels[1]: new_constraint.append({todoX: 1})
-                # minesweeperModel.insert_constraint(constraints, new_constraint)
+                # constraints = minesweeperModel.insert_constraint(constraints, new_constraint)
 
 
                 # for var in newDomains: # note that domains keys are variables.. domains is mapping variable->var_domains
@@ -200,18 +203,15 @@ def relationalArcConsistency(domains, constraints, rac_i=1, rac_m=1):
 
                     newDomains[todoX] = acceptedLabels
 
-                # for var in newDomains: # note that domains keys are variables.. domains is mapping variable->var_domains
-                #     if var != todoX: continue
-
+                # for constraint in minesweeperModel.variableToConstraints(constraints, todoX):
+                #     if (constraint == new_constraint): print("TEST!")
                 #     accepted_labels = set()
-                #     for constraint in minesweeperModel.variableToConstraints(constraints, var):
-                #         for assignment in constraints[constraint]:
-                #             accepted_labels.add(assignment[var])
+                #     for assignment in constraints[constraint]:
+                #         accepted_labels.add(assignment[todoX])
 
-
-                #     for currently_available_label in domains[var]:
+                #     for currently_available_label in domains[todoX]:
                 #         if currently_available_label not in accepted_labels:
-                #             newDomains[var][currently_available_label] = False
+                #             newDomains[todoX][currently_available_label] = False
 
 
     print() # just to make sure the next print (which is presumably a minesweeper grid) doesnt go onto the carriage return text

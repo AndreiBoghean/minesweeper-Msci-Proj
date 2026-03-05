@@ -58,7 +58,7 @@ for i in range(3):
     if i == 0: domains = solverAlgs.relationalArcConsistency(domains, constraints, rac_i=1, rac_m=1)
     elif i == 1: domains = solverAlgs.relationalArcConsistency(domains, constraints, rac_i=1, rac_m=2)
     elif i == 2: domains = solverAlgs.relationalArcConsistency(domains, constraints, rac_i=1, rac_m=3)
-    else: domains = solverAlgs.relationalArcConsistency(domains, constraints, rac_i=2, rac_m=3)
+    else: domains = solverAlgs.relationalArcConsistency(domains, constraints, rac_i=1, rac_m=4)
 
     domainsArr.append(domains)
     print(f"domains after {i+1} attempts:")

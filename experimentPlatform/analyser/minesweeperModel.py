@@ -159,8 +159,9 @@ def renderShadedField(domainsArr, hints, ratios): # default rgb is purple
     cmap = matplotlib.cm.get_cmap('plasma').reversed()
     cmap = matplotlib.cm.get_cmap('cool')
     cmap = matplotlib.cm.get_cmap('turbo')
-    cmap = matplotlib.cm.get_cmap('rainbow')
     cmap = matplotlib.cm.get_cmap('gist_rainbow')
+    cmap = matplotlib.cm.get_cmap('jet').reversed()
+    cmap = matplotlib.cm.get_cmap('rainbow').reversed()
 
     index_reprs = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     print(colUNDERLINE + " |" + "".join([index_reprs[i] for i in range(len(hints[0]))]) + colRESTORE)
@@ -191,6 +192,7 @@ def renderShadedField(domainsArr, hints, ratios): # default rgb is purple
     for perc in sorted(list(all_percs)):
         option = arbiAnsiBg(int(cmap(perc)[0]*255), int(cmap(perc)[1]*255), int(cmap(perc)[2]*255));
         print(option + " ", end=colRESTORE)
+    print()
 
 ####################################### CONSTRAINTS
 

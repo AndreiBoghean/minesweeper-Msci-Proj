@@ -6,6 +6,17 @@ import solverAlgs
 import minesweeperModel
 
 techniques = {
+        "test": [
+            [0, 0, 0, 1, 1, 1, 0, 0, 0],
+            [0, 0, 0, 1, 9, 2, 1, 1, 0],
+            [1, 1, 0, 1, 1, 3, 9, 2, 0],
+            [9, 1, 0, 9, 0, 2, 9, 2, 0],
+            [1, 2, 1, 1, 0, 1, 2, 2, 1],
+            [1, 2, 9, 1, 0, 0, 1, 9, 1],
+            [9, 9, 2, 1, 0, 0, 1, 1, 1],
+            [2, 9, 2, 1, 1, 1, 1, 1, 1],
+            [1, 9, 1, 1, 9, 1, 1, 9, 1],
+        ],
         "basic pattern B1 and B2": [
             [0, 0, 1, 9, 9],
             [0, 0, 2, 9, 9],
@@ -155,7 +166,7 @@ techniques = {
 for t in techniques: techniques[t] = np.array(techniques[t]) # too lazy to put np.array() on each array item
 
 for title, hints in techniques.items():
-    if "doughnut" not in title: continue
+    if "test" not in title: continue
 
     print(f"analising technique", title)
 
