@@ -34,9 +34,9 @@ reverse_seed_3bv_lookup = {threebv: seed for seed, threebv in seed_3bv_lookup.it
 
 # ---------------------------- Data loading ----------------------------
 
-manual_outliers = [ inputHandler.get_database_entry("9051914951248.672", "1770650611889", "1769089890388") ]
 
-raw_database_entries = inputHandler.get_all_database_content()
+raw_database_entries = inputHandler.get_all_database_content(merge_known_identities=True)
+manual_outliers = [ inputHandler.get_database_entry("9051914951248.672", "1770650611889", "1769089890388") ]
 database_entries = list(filter(lambda entry: [] == [e for e in manual_outliers if e == entry], raw_database_entries))
 database_entries_successful = list(filter(lambda entry: entry["successful"], database_entries))
 
@@ -51,7 +51,7 @@ for neededID in all_users[::-1]:
             # break  # actually.. dont break, so that the last public username is used instead of the first one found.
 
 preprocesses = {}
-for entry in database_entries:
+for entry in inputHandler.get_all_database_content():
     action_analyses = inputHandler.load_preprocessed(entry)
     if action_analyses is None:
         print(f"ERROR: {entry=} isnt preprocessed")
@@ -108,7 +108,7 @@ def _move_difficulty_at_xy(domainsArr, xy):
             return i
     return None
 
-name_order = [_user_pub_to_priv("andreiBrowser"), _user_pub_to_priv("Duncan")]
+name_order = [_user_pub_to_priv("andreiAll"), _user_pub_to_priv("Duncan")]
 
 def custom_name_order(vals):
     if False: # hook to disable reordering
@@ -248,11 +248,7 @@ def plot_submissions_per_field_3bv(database_entries, database_entries_successful
     plt.legend()
     plt.show(block=False)
 
-
 def plot_avg_percent_difference_per_person(database_entries, userPRIV_to_pub, seed_3bv_lookup, successful_only=True, time_unit="s", min_fields_per_person=2, min_attempts_per_field=1, sort_by_metric=True):
-    """
-    (kept same logic; just simplified a bit)
-    """
     rows = []
     for e in database_entries:
         try:
@@ -341,6 +337,91 @@ def plot_avg_percent_difference_per_person(database_entries, userPRIV_to_pub, se
     plt.tight_layout()
     plt.show(block=False)
 
+def plot_avg_time_per_person(database_entries, userPRIV_to_pub, seed_3bv_lookup, successful_only=True, time_unit="s", min_fields_per_person=2, min_attempts_per_field=1, sort_by_metric=True):
+    rows = []
+    for e in database_entries:
+        try:
+            if successful_only and not e.get("successful", False):
+                continue
+            seed = str(e["seed"])
+            threebv = seed_3bv_lookup.get(seed, None)
+            if threebv is None:
+                continue
+
+            dur = float(e["duration"])
+            if time_unit == "s":
+                dur /= 1000.0
+            elif time_unit == "ms":
+                pass
+            else:
+                raise ValueError("time_unit must be 's' or 'ms'")
+
+            user_priv = e["userIDpriv"]
+            rows.append((user_priv, int(threebv), dur))
+        except Exception:
+            continue
+
+    if len(rows) == 0:
+        print("No valid rows to compute metrics.")
+        return
+
+    users = np.array([r[0] for r in rows], dtype=object)
+    fields = np.array([r[1] for r in rows], dtype=int)
+    durs = np.array([r[2] for r in rows], dtype=float)
+
+    uniq_fields, inv_f = np.unique(fields, return_inverse=True)
+    global_sum = np.bincount(inv_f, weights=durs)
+    global_cnt = np.bincount(inv_f)
+    global_avg = global_sum / np.maximum(global_cnt, 1)
+    global_avg_by_field = {int(f): float(global_avg[i]) for i, f in enumerate(uniq_fields)}
+
+    pair_keys = np.array([f"{u}|||{fld}" for u, fld in zip(users, fields)], dtype=object)
+    uniq_pairs, inv_p = np.unique(pair_keys, return_inverse=True)
+    pair_sum = np.bincount(inv_p, weights=durs)
+    pair_cnt = np.bincount(inv_p)
+    pair_avg = pair_sum / np.maximum(pair_cnt, 1)
+
+    user_to_diffs = {}
+    for i, pair in enumerate(uniq_pairs):
+        u, fld_str = pair.split("|||")
+        fld = int(fld_str)
+        if pair_cnt[i] < min_attempts_per_field:
+            continue
+
+        pdiff = pair_avg[i]
+        user_to_diffs.setdefault(u, []).append(float(pdiff))
+
+    labels = []
+    metrics = []
+    for u, diffs in user_to_diffs.items():
+        if len(diffs) < min_fields_per_person:
+            continue
+        labels.append(userPRIV_to_pub.get(u, f"undef:{u}"))
+        metrics.append(float(np.mean(diffs)))
+
+    if len(metrics) == 0:
+        print("No users met min_fields_per_person / min_attempts_per_field.")
+        return
+
+    labels = np.array(labels, dtype=object)
+    metrics = np.array(metrics, dtype=float)
+
+    if sort_by_metric:
+        order = np.argsort(metrics)
+        labels = labels[order]
+        metrics = metrics[order]
+
+    plt.figure(figsize=(12, 6))
+    plt.bar(labels, metrics, color="royalblue", edgecolor="black")
+    plt.axhline(0, color="black", linewidth=1)
+    plt.ylabel(f"Avg map solve time ({time_unit})")
+    plt.xlabel("Person")
+    plt.title("Avg field times per person")
+    plt.xticks(rotation=45, ha="right")
+    plt.grid(axis="y", alpha=0.25)
+    plt.tight_layout()
+    plt.show(block=False)
+
 
 # THING 2.
 def plot_box_solve_time_per_field(database_entries):
@@ -375,9 +456,11 @@ def plot_box_solve_time_per_field(database_entries):
     plt.grid(axis="y")
 
     vals = [durations[idx == i] for i in range(len(unique_fields))]
-    plt.boxplot(vals, positions=unique_fields)
+    medianprops=dict(color="#F8982E", linewidth=2)
+    plt.boxplot(vals, positions=unique_fields, medianprops=medianprops)
 
     avgs = [durations[idx == i].mean() for i in range(len(unique_fields))]
+    avgs = [np.median(durations[idx == i]) for i in range(len(unique_fields))]
     plt.bar(unique_fields, avgs, color="lightcoral", edgecolor="black")
 
     plt.xticks(ticks=unique_fields, labels=unique_fields)
@@ -554,6 +637,54 @@ def plot_move_distance_histogram(database_entries, userPRIV_to_pub, only_seed=No
     plt.tight_layout()
     plt.show(block=False)
 
+def plot_move_time_avg_intermediate(database_entries, userPRIV_to_pub, only_seed=None, only_user_priv=None, time_unit="s", color=None):
+    dts = {}
+    for entry in database_entries:
+        if only_seed is not None and str(entry.get("seed")) != str(only_seed):
+            continue
+        if only_user_priv is not None and entry.get("userIDpriv") != only_user_priv:
+            continue
+
+        records = entry.get("actionRecords", [])
+        if records is None or len(records) == 0:
+            continue
+
+        records = sorted(records, key=lambda r: int(r.get("timestamp", 0)))
+        ts = []
+        for r in records:
+            if "timestamp" not in r:
+                continue
+            try:
+                ts.append(int(r["timestamp"]))
+            except ValueError:
+                continue
+
+        if len(ts) == 0:
+            continue
+
+        if len(ts) >= 2:
+            diffs = np.diff(np.array(ts, dtype=np.int64))
+            [] = dts.get() + diffs.tolist()
+
+    if len(dts) == 0:
+        print("No move times found for the given filters.")
+        return
+
+    dts = np.array(dts, dtype=float)
+    if time_unit == "ms":
+        pass
+    elif time_unit == "s":
+        dts = dts / 1000.0
+    else:
+        raise ValueError("time_unit must be 'ms' or 's'")
+
+    if len(dts) == 0:
+        print("All move times removed by clipping.")
+        return
+
+    user_part = "all people" if only_user_priv is None else userPRIV_to_pub.get(only_user_priv, f"undef:{only_user_priv}")
+    plt.hist(dts, label=user_part, edgecolor="black", alpha=0.55, color=color)
+
 def plot_move_time_histogram_intermediate(database_entries, userPRIV_to_pub, only_seed=None, only_user_priv=None, bins=30, time_unit="s", include_first_move=False, clip_min=None, clip_max=None, color=None):
     dts = []
     for entry in database_entries:
@@ -623,6 +754,98 @@ def plot_move_time_histogram_overlaid(database_entries, userPRIV_to_pub, only_se
     plt.ylim(0, 3.7)
     plt.tight_layout()
     plt.legend()
+    plt.show(block=False)
+
+def plot_avg_move_time_per_user_intermediate(database_entries, userPRIV_to_pub, only_seed=None, only_user_priv=None, time_unit="s", include_first_move=False, clip_min=None, clip_max=None):
+    """
+    Returns (label, avg_time) for a single user/seed filter, or None if no data.
+    """
+    dts = []
+    for entry in database_entries:
+        if only_seed is not None and str(entry.get("seed")) != str(only_seed):
+            continue
+        if only_user_priv is not None and entry.get("userIDpriv") != only_user_priv:
+            continue
+
+        records = entry.get("actionRecords", [])
+        if records is None or len(records) == 0:
+            continue
+
+        records = sorted(records, key=lambda r: int(r.get("timestamp", 0)))
+        ts = []
+        for r in records:
+            if "timestamp" not in r:
+                continue
+            try:
+                ts.append(int(r["timestamp"]))
+            except ValueError:
+                continue
+
+        if len(ts) == 0:
+            continue
+
+        if include_first_move:
+            dts.append(0)
+        if len(ts) >= 2:
+            dts.extend(np.diff(np.array(ts, dtype=np.int64)).tolist())
+
+    if len(dts) == 0:
+        return None
+
+    dts = np.array(dts, dtype=float)
+    if time_unit == "s":
+        dts = dts / 1000.0
+    elif time_unit != "ms":
+        raise ValueError("time_unit must be 'ms' or 's'")
+
+    if clip_min is not None:
+        dts = dts[dts >= float(clip_min)]
+    if clip_max is not None:
+        dts = dts[dts <= float(clip_max)]
+
+    if len(dts) == 0:
+        return None
+
+    label = "all people" if only_user_priv is None else only_user_priv
+    return label, float(np.mean(dts))
+
+
+def plot_avg_move_time_per_user(database_entries, userPRIV_to_pub, only_seed=None, users=[None], time_unit="s", include_first_move=False, clip_min=None, clip_max=None, user_order=None):
+    results = []
+    for user in [u for u in users if u is not None]:
+        r = plot_avg_move_time_per_user_intermediate(
+            database_entries, userPRIV_to_pub, only_seed, user,
+            time_unit, include_first_move, clip_min, clip_max)
+        if r is not None:
+            results.append(r)
+
+    # append "all people" (None) last if it was in users
+    if None in users:
+        r = plot_avg_move_time_per_user_intermediate(
+            database_entries, userPRIV_to_pub, only_seed, None,
+            time_unit, include_first_move, clip_min, clip_max)
+        if r is not None:
+            results.append(r)
+
+    if not results:
+        print("No move time data found.")
+        return
+
+    labels = [r[0] for r in results]
+    data   = [r[1] for r in results]
+
+    labels, data = rearange_name_data(labels, data)
+    labels = [_user_label(u) for u in labels]
+
+    field_part = "all maps" if only_seed is None else _seed_label(only_seed)
+    plt.figure(figsize=(9, 5))
+    plt.bar(labels, data, color="steelblue", edgecolor="black")
+    plt.xlabel("User")
+    plt.ylabel(f"Avg time between moves ({time_unit})")
+    plt.title(f"Average time between moves ({field_part})")
+    plt.xticks(rotation=45, ha="right")
+    plt.grid(axis="y", alpha=0.25)
+    plt.tight_layout()
     plt.show(block=False)
 
 
@@ -1165,7 +1388,7 @@ def plot_avg_entropy_per_field_for_user(database_entries, preprocesses, target_u
     plt.tight_layout()
     plt.show(block=False)
 
-def plot_avg_entropy_per_user(database_entries, preprocesses, use_pre_action_state=True, successful_only=False, sort_descending=True):
+def plot_avg_entropy_per_user(database_entries, preprocesses, use_pre_action_state=True, successful_only=False, sort_descending=True, data_only=False):
     """
     Bar chart: one bar per user, y = avg entropy across all their submissions (all fields pooled).
     Entropy per submission = mean log2(possible_moves) across its actions.
@@ -1244,6 +1467,9 @@ def plot_avg_entropy_per_user(database_entries, preprocesses, use_pre_action_sta
         labels = [labels[i] for i in order]
         avgs = [avgs[i] for i in order]
 
+    if data_only:
+        return labels, avgs
+
     plt.figure(figsize=(10, 5))
     plt.bar(labels, avgs, color="steelblue", edgecolor="black")
     plt.xlabel("User")
@@ -1253,7 +1479,6 @@ def plot_avg_entropy_per_user(database_entries, preprocesses, use_pre_action_sta
     plt.grid(axis="y", alpha=0.25)
     plt.tight_layout()
     plt.show(block=False)
-
 
 # ---------------------------- Phase runners ----------------------------
 
@@ -1269,9 +1494,11 @@ def phase_2_time_vs_field():
     # plot_avg_solve_time_per_field(database_entries_successful)
     plot_box_solve_time_per_field(database_entries_successful)
 
-    test_users = [key for key, val in userPRIV_to_pub.items() if val in ["andreiBrowser", "Duncan", "Alpaca"]]
+    test_users = [key for key, val in userPRIV_to_pub.items() if val in ["andreiAll", "Duncan", "Alpaca"]]
     plot_avg_solve_time_per_field_per_person(database_entries_successful, test_users, userPRIV_to_pub)
     plot_avg_percent_difference_per_person(database_entries, userPRIV_to_pub, seed_3bv_lookup, successful_only=True, time_unit="s")
+    # V useless since a person who only did a single (easy) map can get a very low average time despite not being skilled
+    # plot_avg_time_per_person(database_entries, userPRIV_to_pub, seed_3bv_lookup, successful_only=True, time_unit="s")
 
 def phase_4_learning_curves():
     for sd in  [13]:  # [10, 13, 22, 35, 40]:
@@ -1280,7 +1507,7 @@ def phase_4_learning_curves():
         plot_learning_curve_per_person_per_field(database_entries_successful, all_users, chosen_seed, userPRIV_to_pub, min_attempts=1, block=False)
 
 def phase_5_move_distance_hists():
-    andrei = [k for k, v in userPRIV_to_pub.items() if v == "andreiBrowser"][0]
+    andrei = [k for k, v in userPRIV_to_pub.items() if v == "andreiAll"][0]
     duncan = [k for k, v in userPRIV_to_pub.items() if v == "Duncan"][0]
     maxine = [k for k, v in userPRIV_to_pub.items() if v == "JazzyMaxine"][0]
 
@@ -1290,7 +1517,7 @@ def phase_5_move_distance_hists():
     plot_move_distance_histogram(database_entries, userPRIV_to_pub, only_seed=None, users=[None] + list(userPRIV_to_pub.keys()), distance_metric="euclidean")
 
 def phase_6_move_time_hists():
-    andrei = [k for k, v in userPRIV_to_pub.items() if v == "andreiBrowser"][0]
+    andrei = [k for k, v in userPRIV_to_pub.items() if v == "andreiAll"][0]
     duncan = [k for k, v in userPRIV_to_pub.items() if v == "Duncan"][0]
     maxine = [k for k, v in userPRIV_to_pub.items() if v == "JazzyMaxine"][0]
 
@@ -1299,8 +1526,10 @@ def phase_6_move_time_hists():
     plot_move_time_histogram_overlaid(database_entries, userPRIV_to_pub, only_seed=None, users=[None, andrei], bins=30, time_unit="s", clip_max=10)
     plot_move_time_histogram_overlaid(database_entries, userPRIV_to_pub, only_seed=None, users=[None] + list(userPRIV_to_pub.keys()), bins=30, time_unit="s", clip_max=10)
 
+    plot_avg_move_time_per_user(database_entries, userPRIV_to_pub, only_seed=None, users=[None] + list(userPRIV_to_pub.keys()), time_unit="s", clip_max=10)
+
 def phase_7_constraint_solver_graphs():
-    andrei = [k for k, v in userPRIV_to_pub.items() if v == "andreiBrowser"][0]
+    andrei = [k for k, v in userPRIV_to_pub.items() if v == "andreiAll"][0]
     one_user_priv = andrei
 
     plot_move_difficulty_histogram(database_entries, preprocesses, userPRIV_to_pub, only_seed=None, only_user_priv=one_user_priv, bins=30)
@@ -1324,11 +1553,14 @@ def phase_8_map_average_experienced_difficulty():
     plot_avg_move_difficulty_per_map(database_entries_successful, preprocesses, seed_3bv_lookup)
 
 def phase_9_entropy_stuff():
-    andrei = [k for k, v in userPRIV_to_pub.items() if v == "andreiBrowser"][0]
+    andrei = [k for k, v in userPRIV_to_pub.items() if v == "andreiAll"][0]
     plot_avg_entropy_per_field_for_user(database_entries, preprocesses, andrei, use_pre_action_state=True, successful_only=False)
     plot_avg_entropy_per_user(database_entries, preprocesses, use_pre_action_state=True, successful_only=False, sort_descending=True)
 
 # ---------------------------- Main flow (same pauses) ----------------------------
+
+
+name_order = [ _user_pub_to_priv(n) for n in plot_avg_entropy_per_user(database_entries, preprocesses, use_pre_action_state=True, successful_only=False, sort_descending=True, data_only=True)[0]]
 
 phases = [
     phase_1_surface_distributions,
