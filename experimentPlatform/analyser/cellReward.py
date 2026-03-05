@@ -52,7 +52,7 @@ def find_possible_moves(domainsArr, width, height):
 
     return possible_moves_count
 
-def do_entropy_stuff(threebv, entries, render=False, debug=False):
+def compute_cell_rewards(threebv, entries, render=False, debug=False):
     testField = threebv
 
     succEntry = None
@@ -112,36 +112,3 @@ def do_entropy_stuff(threebv, entries, render=False, debug=False):
     if render: minesweeperModel.renderShadedField(inputHandler.load_preprocessed(succEntry)[-1], fullBoard, board_aggregator)
 
     return board_aggregator
-
-if __name__ == "__main__": # running as main will run random testing/debug stuff
-    entries = inputHandler.get_all_database_content()
-
-    testEntry = inputHandler.get_database_entry("7478532506737.593", "1770053639277", "1769089890391")
-    testEntry = inputHandler.get_database_entry("9051914951248.672", "1770392320640", "1769089890391")
-    testEntry = inputHandler.get_database_entry("6094896675755.898", "0", "1769089890404")
-    # entries = [testEntry]
-
-
-    if len(sys.argv) > 1: testFields = [int(sys.argv[1])]
-    else: testFields = list(seed_3bv_lookup.values())
-
-    entropies = [0] * 41
-    for testField in testFields:
-        print(f"entropy for 3bv:{testField}")
-        entropy_data = do_entropy_stuff(testField, entries, render=True)
-        print()
-
-        total_entropy = np.sum(entropy_data)
-        print(f"entropy heatmap for 3bv:{testField} (total:{total_entropy})")
-        entropies[testField] = total_entropy
-
-    plt.figure(figsize=(10, 6))
-    plt.bar(list(range(41)), entropies, label="stuff", edgecolor="black")
-    plt.xlabel("Field (3bv)")
-    plt.ylabel("entropy")
-    plt.title("Distribution of entropy per field (3bv)")
-    unique_fields = [int(x) for x in seed_3bv_lookup.values()]
-    plt.xticks(ticks=unique_fields, labels=unique_fields)
-    plt.tight_layout()
-    plt.legend()
-    plt.show(block=True)

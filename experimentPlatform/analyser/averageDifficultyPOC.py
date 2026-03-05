@@ -58,7 +58,7 @@ def _move_difficulty_at_xy(domainsArr, xy):
             return i
     return None
 
-def do_difficulty_stuff(threebv, entries, render=False, debug=False):
+def compute_cell_difficulties(threebv, entries, render=False, debug=False):
     testField = threebv
 
     succEntry = None
@@ -114,49 +114,10 @@ def do_difficulty_stuff(threebv, entries, render=False, debug=False):
             hints = inputHandler.resimulate_partial_submission(entry, i, doPrint=False)
             minesweeperModel.phaseRenderDomains(current_boards, hints)
             minesweeperModel.renderShadedField(inputHandler.load_preprocessed(succEntry)[-1], hints, local_difficulty)
-            print(local_difficulty)
-            for row in local_difficulty:
-                if True in (row < 0): exit()
 
-    # print(f"b4 {board_aggregator=}")
     board_aggregator[np.isnan(board_aggregator)] = 0
-    # print(f"mid {board_aggregator=}")
     board_aggregator = board_aggregator / np.max(board_aggregator)
-    # print(f"aft {board_aggregator=}")
 
     if render: minesweeperModel.renderShadedField(inputHandler.load_preprocessed(succEntry)[-1], fullBoard, board_aggregator)
 
     return board_aggregator
-
-if __name__ == "__main__": # running as main will run random testing/debug stuff
-    entries = inputHandler.get_all_database_content()
-
-    testEntry = inputHandler.get_database_entry("7478532506737.593", "1770053639277", "1769089890391")
-    # testEntry = inputHandler.get_database_entry("9051914951248.672", "1770392320640", "1769089890391")
-    # entries = [testEntry]
-
-
-    if len(sys.argv) > 1: testFields = [int(sys.argv[1])]
-    else: testFields = list(seed_3bv_lookup.values())
-
-    difficulties = [0] * 41
-    for testField in testFields:
-        print(f"typical difficulties for 3bv:{testField}")
-        difficulty_data = do_difficulty_stuff(testField, entries, render=True, debug=False)
-        print()
-
-        total_difficulty = np.sum(difficulty_data)
-        print(f"difficulty heatmap for 3bv:{testField} (total:{total_difficulty})")
-        difficulties[testField] = total_difficulty
-
-
-    plt.figure(figsize=(10, 6))
-    plt.bar(list(range(41)), difficulties, label="stuff", edgecolor="black")
-    plt.xlabel("Field (3bv)")
-    plt.ylabel("difficulty")
-    plt.title("Distribution of difficulty per field (3bv)")
-    unique_fields = [int(x) for x in seed_3bv_lookup.values()]
-    plt.xticks(ticks=unique_fields, labels=unique_fields)
-    plt.tight_layout()
-    plt.legend()
-    plt.show(block=True)
