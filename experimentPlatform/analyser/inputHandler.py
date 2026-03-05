@@ -6,6 +6,7 @@ import datetime
 import os
 import sys
 import builtins
+import copy
 
 import minesweeperModel
 import solverAlgs
@@ -166,10 +167,34 @@ def get_test_input():
 # and when we do the big "final" statitsics run, we will just download the whole dataset manually.
 
 manual_outliers = [ "6973872c367b629e6f5b347b", "69774c13367b629e6f5b3494", "69778783367b629e6f5b3515", "6978a206a91d7db7b45cdeaf", "697b3e7ca91d7db7b45cdeca", "697c61caa91d7db7b45cdf05", "697c61caa91d7db7b45cdf06" ]
-def get_all_database_content():
-    with open("testData/testData.json") as f:
-        jayson = json.load(f)
-        return list(filter(lambda x: x["_id"]["$oid"] not in manual_outliers, jayson))
+known_identities = [["andreiAll", "andreiAll", "andreiChrome", "andreiPhone", "andreiFirefox"]]
+jaysonCache = None
+def get_all_database_content(filter_manuals=True, modify_incomplete_completes=True, merge_known_identities=False):
+    def oid_is_banned(entry):
+        return entry["_id"]["$oid"] not in manual_outliers
+
+    global jaysonCache;
+    if jaysonCache is None:
+        with open("testData/testData.json") as f:
+            jaysonCache = json.load(f)
+    jayson = copy.deepcopy(jaysonCache)
+
+    if (merge_known_identities):
+        for i in range(len(jayson)):
+            for identity_set in known_identities:
+                if jayson[i]["userIDpub"] in identity_set:
+                    jayson[i]["userIDpriv"] = identity_set[0]
+                    jayson[i]["userIDpub"] = identity_set[0]
+                    break
+
+    if filter_manuals:
+        jayson = filter(oid_is_banned, jayson)
+
+    # if modify_incomplete_completes:
+    #     jayson = filter(lambda x: , jayson)
+
+
+    return list(jayson)
 
 def get_database_entry(userIDpriv, timestamp, seed): # note: IDpriv, timestamp, seed makes up our internal primary key for user submissions.
     database_data = get_all_database_content()
@@ -391,8 +416,6 @@ def process_entry(entry, doPrint=False):
     return action_analyses
 
 
-
-
 def preprocess_all_entries(threadCount=1, threadID=0):
     for i, entry in enumerate(get_all_database_content()):
         if i%threadCount != threadID:
@@ -420,6 +443,7 @@ if __name__ == "__main__": # running as main will run random testing/debug stuff
 
     testEntry = get_database_entry("7478532506737.593", "1770053639277", "1769089890391")
     testEntry = get_database_entry("9051914951248.672", "1770392320640", "1769089890391")
+    testEntry = get_database_entry("9051914951248.672", "1769432112105", "1769089890408")
 
     action_analyses = load_preprocessed(testEntry)
     if (action_analyses is None): action_analyses = process_entry(testEntry)
