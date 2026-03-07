@@ -1,7 +1,8 @@
 import inputHelper
 import numpy as np
 
-name_order = [inputHelper._user_pub_to_priv("andreiAll"), inputHelper._user_pub_to_priv("Duncan")]
+name_order = [] # [inputHelper._user_pub_to_priv("andreiAll"), inputHelper._user_pub_to_priv("Duncan")]
+# name_order = [inputHelper._user_pub_to_priv("andreiAll"), inputHelper._user_pub_to_priv("Duncan")]
 
 def custom_name_order(vals):
     if False: # hook to disable reordering
@@ -102,8 +103,6 @@ def process_submissions_per_field_3bv(percentage=False):
     unique_fields2, all_counts2 = unique_fields, (counts / all_counts) if percentage else counts
     return unique_fields1, all_counts1, unique_fields2, all_counts2
 
-# VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV
-
 def process_avg_percent_difference_per_person(successful_only=True, time_unit="s", min_fields_per_person=2, min_attempts_per_field=1, sort_by_metric=True):
     rows = []
     for e in inputHelper.database_entries:
@@ -183,7 +182,7 @@ def process_avg_percent_difference_per_person(successful_only=True, time_unit="s
 
 def process_avg_time_per_person(successful_only=True, time_unit="s", min_fields_per_person=2, min_attempts_per_field=1, sort_by_metric=True):
     rows = []
-    for e in database_entries:
+    for e in inputHelper.database_entries:
         try:
             if successful_only and not e.get("successful", False):
                 continue
@@ -263,7 +262,7 @@ def process_box_solve_time_per_field():
     durations = []
     fields = []
 
-    for entry in inputHelper.database_entries:
+    for entry in inputHelper.database_entries_successful:
         try:
             dur = float(entry["duration"]) / 1000
             seed = entry["seed"]
@@ -330,7 +329,7 @@ def process_avg_solve_time_per_field_per_person(target_users):
         durations = []
         fields = []
 
-        for entry in inputHelper.database_entries:
+        for entry in inputHelper.database_entries_successful:
             if entry["userIDpriv"] != user:
                 continue
             try:
@@ -358,326 +357,19 @@ def process_avg_solve_time_per_field_per_person(target_users):
         returnable.append([times, unique_fields, avg_times])
     return returnable
 
-# ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-def plot_avg_percent_difference_per_person(database_entries, seed_3bv_lookup, successful_only=True, time_unit="s", min_fields_per_person=2, min_attempts_per_field=1, sort_by_metric=True):
-    rows = []
-    for e in inputHelper.database_entries:
-        try:
-            if successful_only and not e.get("successful", False):
-                continue
-            seed = str(e["seed"])
-            threebv = seed_3bv_lookup.get(seed, None)
-            if threebv is None:
-                continue
-
-            dur = float(e["duration"])
-            if time_unit == "s":
-                dur /= 1000.0
-            elif time_unit == "ms":
-                pass
-            else:
-                raise ValueError("time_unit must be 's' or 'ms'")
-
-            user_priv = e["userIDpriv"]
-            rows.append((user_priv, int(threebv), dur))
-        except Exception:
-            continue
-
-    if len(rows) == 0:
-        print("No valid rows to compute metrics.")
-        return
-
-    users = np.array([r[0] for r in rows], dtype=object)
-    fields = np.array([r[1] for r in rows], dtype=int)
-    durs = np.array([r[2] for r in rows], dtype=float)
-
-    uniq_fields, inv_f = np.unique(fields, return_inverse=True)
-    global_sum = np.bincount(inv_f, weights=durs)
-    global_cnt = np.bincount(inv_f)
-    global_avg = global_sum / np.maximum(global_cnt, 1)
-    global_avg_by_field = {int(f): float(global_avg[i]) for i, f in enumerate(uniq_fields)}
-
-    pair_keys = np.array([f"{u}|||{fld}" for u, fld in zip(users, fields)], dtype=object)
-    uniq_pairs, inv_p = np.unique(pair_keys, return_inverse=True)
-    pair_sum = np.bincount(inv_p, weights=durs)
-    pair_cnt = np.bincount(inv_p)
-    pair_avg = pair_sum / np.maximum(pair_cnt, 1)
-
-    user_to_diffs = {}
-    for i, pair in enumerate(uniq_pairs):
-        u, fld_str = pair.split("|||")
-        fld = int(fld_str)
-        if pair_cnt[i] < min_attempts_per_field:
-            continue
-
-        gavg = global_avg_by_field.get(fld, None)
-        if gavg is None or gavg == 0:
-            continue
-
-        pdiff = 100.0 * (pair_avg[i] - gavg) / gavg
-        user_to_diffs.setdefault(u, []).append(float(pdiff))
-
-    labels = []
-    metrics = []
-    for u, diffs in user_to_diffs.items():
-        if len(diffs) < min_fields_per_person:
-            continue
-        labels.append(inputHelper._user_label(u))
-        metrics.append(float(np.mean(diffs)))
-
-    if len(metrics) == 0:
-        print("No users met min_fields_per_person / min_attempts_per_field.")
-        return
-
-    labels = np.array(labels, dtype=object)
-    metrics = np.array(metrics, dtype=float)
-
-    if sort_by_metric:
-        order = np.argsort(metrics)
-        labels = labels[order]
-        metrics = metrics[order]
-
-    plt.figure(figsize=(12, 6))
-    plt.bar(labels, metrics, color="royalblue", edgecolor="black")
-    plt.axhline(0, color="black", linewidth=1)
-    plt.ylabel(f"Avg % difference vs global ({time_unit})")
-    plt.xlabel("Person")
-    plt.title("Avg percent difference from global field averages (lower is faster)")
-    plt.xticks(rotation=45, ha="right")
-    plt.grid(axis="y", alpha=0.25)
-    plt.tight_layout()
-    plt.show(block=False)
-
-def plot_avg_time_per_person(database_entries, seed_3bv_lookup, successful_only=True, time_unit="s", min_fields_per_person=2, min_attempts_per_field=1, sort_by_metric=True):
-    rows = []
-    for e in inputHelper.database_entries:
-        try:
-            if successful_only and not e.get("successful", False):
-                continue
-            seed = str(e["seed"])
-            threebv = seed_3bv_lookup.get(seed, None)
-            if threebv is None:
-                continue
-
-            dur = float(e["duration"])
-            if time_unit == "s":
-                dur /= 1000.0
-            elif time_unit == "ms":
-                pass
-            else:
-                raise ValueError("time_unit must be 's' or 'ms'")
-
-            user_priv = e["userIDpriv"]
-            rows.append((user_priv, int(threebv), dur))
-        except Exception:
-            continue
-
-    if len(rows) == 0:
-        print("No valid rows to compute metrics.")
-        return
-
-    users = np.array([r[0] for r in rows], dtype=object)
-    fields = np.array([r[1] for r in rows], dtype=int)
-    durs = np.array([r[2] for r in rows], dtype=float)
-
-    uniq_fields, inv_f = np.unique(fields, return_inverse=True)
-    global_sum = np.bincount(inv_f, weights=durs)
-    global_cnt = np.bincount(inv_f)
-    global_avg = global_sum / np.maximum(global_cnt, 1)
-    global_avg_by_field = {int(f): float(global_avg[i]) for i, f in enumerate(uniq_fields)}
-
-    pair_keys = np.array([f"{u}|||{fld}" for u, fld in zip(users, fields)], dtype=object)
-    uniq_pairs, inv_p = np.unique(pair_keys, return_inverse=True)
-    pair_sum = np.bincount(inv_p, weights=durs)
-    pair_cnt = np.bincount(inv_p)
-    pair_avg = pair_sum / np.maximum(pair_cnt, 1)
-
-    user_to_diffs = {}
-    for i, pair in enumerate(uniq_pairs):
-        u, fld_str = pair.split("|||")
-        fld = int(fld_str)
-        if pair_cnt[i] < min_attempts_per_field:
-            continue
-
-        pdiff = pair_avg[i]
-        user_to_diffs.setdefault(u, []).append(float(pdiff))
-
-    labels = []
-    metrics = []
-    for u, diffs in user_to_diffs.items():
-        if len(diffs) < min_fields_per_person:
-            continue
-        labels.append(inputHelper._user_label(u))
-        metrics.append(float(np.mean(diffs)))
-
-    if len(metrics) == 0:
-        print("No users met min_fields_per_person / min_attempts_per_field.")
-        return
-
-    labels = np.array(labels, dtype=object)
-    metrics = np.array(metrics, dtype=float)
-
-    if sort_by_metric:
-        order = np.argsort(metrics)
-        labels = labels[order]
-        metrics = metrics[order]
-
-    plt.figure(figsize=(12, 6))
-    plt.bar(labels, metrics, color="royalblue", edgecolor="black")
-    plt.axhline(0, color="black", linewidth=1)
-    plt.ylabel(f"Avg map solve time ({time_unit})")
-    plt.xlabel("Person")
-    plt.title("Avg field times per person")
-    plt.xticks(rotation=45, ha="right")
-    plt.grid(axis="y", alpha=0.25)
-    plt.tight_layout()
-    plt.show(block=False)
-
-
-# THING 2.
-def plot_box_solve_time_per_field():
-    durations = []
-    fields = []
-
-    for entry in inputHelper.database_entries:
-        try:
-            dur = float(entry["duration"]) / 1000
-            seed = entry["seed"]
-            threebv = _seed_to_3bv(seed)
-            if threebv is None:
-                continue
-            if dur < 0.05:
-                continue
-            if len(entry["actionRecords"]) < threebv:
-                continue
-            durations.append(dur)
-            fields.append(threebv)
-        except (KeyError, ValueError, KeyError):
-            continue
-
-    if not durations:
-        print("No valid durations found.")
-        return
-
-    durations = np.array(durations)
-    fields = np.array(fields)
-    unique_fields, idx = np.unique(fields, return_inverse=True)
-
-    plt.figure(figsize=(10, 6))
-    plt.grid(axis="y")
-
-    vals = [durations[idx == i] for i in range(len(unique_fields))]
-    medianprops=dict(color="#F8982E", linewidth=2)
-    plt.boxplot(vals, positions=unique_fields, medianprops=medianprops)
-
-    avgs = [durations[idx == i].mean() for i in range(len(unique_fields))]
-    avgs = [np.median(durations[idx == i]) for i in range(len(unique_fields))]
-    plt.bar(unique_fields, avgs, color="lightcoral", edgecolor="black")
-
-    plt.xticks(ticks=unique_fields, labels=unique_fields)
-    plt.xlabel("Field (3bv)")
-    plt.ylabel("Min solve time (s)")
-    plt.title("solve time per field (3bv)")
-    plt.tight_layout()
-    plt.show(block=False)
-
-
-def _avg_solve_time_per_field(database_entries):
-    durations = []
-    fields = []
-
-    for entry in inputHelper.database_entries:
-        try:
-            dur = float(entry["duration"]) / 1000
-            seed = entry["seed"]
-            threebv = _seed_to_3bv(seed)
-            if threebv is None:
-                continue
-            durations.append(dur)
-            fields.append(threebv)
-        except (KeyError, ValueError, KeyError):
-            continue
-
-    if not durations:
-        print("No valid durations found.")
-        return
-
-    durations = np.array(durations)
-    fields = np.array(fields)
-    unique_fields, idx = np.unique(fields, return_inverse=True)
-    avgs = [durations[idx == i].mean() for i in range(len(unique_fields))]
-
-    plt.figure(figsize=(10, 6))
-    plt.grid(axis="y")
-    plt.bar(unique_fields, avgs, color="lightcoral", edgecolor="black")
-    plt.xticks(ticks=unique_fields, labels=unique_fields)
-    plt.yticks(ticks=np.arange(0, 85, step=2.5))
-    plt.xlabel("Field (3bv)")
-    plt.ylabel("Average solve time (s)")
-    plt.title("Average solve time per field (3bv)")
-
-    plt.margins(0)
-    plt.tight_layout()
-    plt.show(block=False)
-
-
-# THING 3.
-def plot_avg_solve_time_per_field_per_person(database_entries, target_users):
-    for user in target_users:
-        durations = []
-        fields = []
-
-        for entry in inputHelper.database_entries:
-            if entry["userIDpriv"] != user:
-                continue
-            try:
-                dur = float(entry["duration"]) / 1000
-                seed = entry["seed"]
-                threebv = _seed_to_3bv(seed)
-                if threebv is None:
-                    continue
-                durations.append(dur)
-                fields.append(threebv)
-            except (KeyError, ValueError, KeyError):
-                continue
-
-        if not durations:
-            print(f"No data for user {user}.")
-            continue
-
-        durations = np.array(durations)
-        fields = np.array(fields)
-
-        unique_fields, idx = np.unique(fields, return_inverse=True)
-
-        plt.figure(figsize=(8, 5))
-
-        times = [durations[idx == i] for i in range(len(unique_fields))]
-        plt.boxplot(times, positions=unique_fields)
-        avg_times = [durations[idx == i].mean() for i in range(len(unique_fields))]
-        plt.bar(unique_fields, avg_times, color="mediumpurple", edgecolor="black")
-
-        plt.xticks(ticks=unique_fields, labels=unique_fields)
-        plt.xlabel("Field (3bv)")
-        plt.ylabel("Average solve time (s)")
-        plt.title(f"Average solve time per field – {inputHelper._user_label(user)}")
-        plt.tight_layout()
-        plt.show(block=False)
-
+# VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV
 
 # THING 4.
-def plot_learning_curve_per_person_per_field(database_entries, target_users, field_value, min_attempts=3, block=False):
+def process_learning_curve_per_person_per_field(target_users, field_value, min_attempts=3, block=False):
     seed = field_value
-    threebv = _seed_to_3bv(seed)
+    threebv = inputHelper._seed_to_3bv(seed)
     if threebv is None:
         print(f"Seed {seed} not in seed_3bv_lookup.")
         return
 
-    plt.figure(figsize=(8, 5))
-
+    returnable = []
     for user in target_users:
-        entries = [e for e in inputHelper.database_entries if e["userIDpriv"] == user and str(e.get("seed", "")) == str(seed)]
+        entries = [e for e in inputHelper.database_entries_successful if e["userIDpriv"] == user and str(e.get("seed", "")) == str(seed)]
 
         if len(entries) < min_attempts:
             print(f"Skipping {user}: only {len(entries)} attempts for field {seed}.")
@@ -687,18 +379,10 @@ def plot_learning_curve_per_person_per_field(database_entries, target_users, fie
         durations = [float(x["duration"]) for x in entries]
         attempts = list(range(1, len(durations) + 1))
 
-        plt.plot(attempts, durations, linestyle="-", label=f"{inputHelper._user_label(user)}")
+        returnable.append((attempts, durations))
+    return returnable
 
-    plt.xlabel("Attempt number")
-    plt.ylabel("Solve time (ms)")
-    plt.title(f"Learning curves of different users for field {threebv} (seed {seed})")
-    plt.grid(True, alpha=0.3)
-    plt.tight_layout()
-    plt.legend()
-    plt.show(block=block)
-
-
-def plot_move_distance_histogram_intermediate(database_entries, only_seed=None, only_user_priv=None, bins=30, distance_metric="euclidean", color=None):
+def process_move_distance_histogram_intermediate(only_seed=None, only_user_priv=None, bins=30, distance_metric="euclidean", color=None):
     def dist(a, b):
         if distance_metric == "euclidean":
             return float(np.sqrt((float(a["x"]) - float(b["x"])) ** 2 + (float(a["y"]) - float(b["y"])) ** 2))
@@ -730,75 +414,9 @@ def plot_move_distance_histogram_intermediate(database_entries, only_seed=None, 
         return
 
     distances = np.array(distances, dtype=float)
-    user_part = "all people" if only_user_priv is None else inputHelper._user_label(only_user_priv)
-    plt.hist(distances, bins=bins, label=user_part, density=True, color=color, edgecolor="black", alpha=0.85)
+    return distances
 
-def plot_move_distance_histogram(database_entries, only_seed=None, users=[None], bins=30, distance_metric="euclidean"):
-    field_part = "all maps" if only_seed is None else inputHelper._seed_label(only_seed)
-
-    plt.figure(figsize=(9, 5))
-
-    for user in users:
-        plot_move_distance_histogram_intermediate(database_entries, only_seed=None, only_user_priv=user, bins=bins, distance_metric=distance_metric, color=None)
-
-    plt.xlabel(f"Move distance ({distance_metric})")
-    plt.ylabel("Probability density")
-    plt.ylim(0, 3)
-    plt.title(f"Distribution of distance between moves ({field_part})")
-    plt.grid(axis="y", alpha=0.25)
-    plt.legend()
-    plt.tight_layout()
-    plt.show(block=False)
-
-def plot_move_time_avg_intermediate(database_entries, only_seed=None, only_user_priv=None, time_unit="s", color=None):
-    dts = {}
-    for entry in inputHelper.database_entries:
-        if only_seed is not None and str(entry.get("seed")) != str(only_seed):
-            continue
-        if only_user_priv is not None and entry.get("userIDpriv") != only_user_priv:
-            continue
-
-        records = entry.get("actionRecords", [])
-        if records is None or len(records) == 0:
-            continue
-
-        records = sorted(records, key=lambda r: int(r.get("timestamp", 0)))
-        ts = []
-        for r in records:
-            if "timestamp" not in r:
-                continue
-            try:
-                ts.append(int(r["timestamp"]))
-            except ValueError:
-                continue
-
-        if len(ts) == 0:
-            continue
-
-        if len(ts) >= 2:
-            diffs = np.diff(np.array(ts, dtype=np.int64))
-            [] = dts.get() + diffs.tolist()
-
-    if len(dts) == 0:
-        print("No move times found for the given filters.")
-        return
-
-    dts = np.array(dts, dtype=float)
-    if time_unit == "ms":
-        pass
-    elif time_unit == "s":
-        dts = dts / 1000.0
-    else:
-        raise ValueError("time_unit must be 'ms' or 's'")
-
-    if len(dts) == 0:
-        print("All move times removed by clipping.")
-        return
-
-    user_part = "all people" if only_user_priv is None else inputHelper._user_label(only_user_priv)
-    plt.hist(dts, label=user_part, edgecolor="black", alpha=0.55, color=color)
-
-def plot_move_time_histogram_intermediate(database_entries, only_seed=None, only_user_priv=None, bins=30, time_unit="s", include_first_move=False, clip_min=None, clip_max=None, color=None):
+def process_move_time_histogram_intermediate(only_seed=None, only_user_priv=None, bins=30, time_unit="s", include_first_move=False, clip_min=None, clip_max=None, color=None):
     dts = []
     for entry in inputHelper.database_entries:
         if only_seed is not None and str(entry.get("seed")) != str(only_seed):
@@ -850,26 +468,9 @@ def plot_move_time_histogram_intermediate(database_entries, only_seed=None, only
         print("All move times removed by clipping.")
         return
 
-    user_part = "all people" if only_user_priv is None else inputHelper._user_label(only_user_priv)
-    plt.hist(dts, label=user_part, bins=bins, density=True, edgecolor="black", alpha=0.55, color=color)
+    return dts
 
-def plot_move_time_histogram_overlaid(database_entries, only_seed=None, users=[None], bins=30, time_unit="s", include_first_move=False, clip_min=None, clip_max=None):
-    plt.figure(figsize=(9, 5))
-
-    for user in users:
-        plot_move_time_histogram_intermediate(database_entries, only_seed, user, bins, time_unit, include_first_move, clip_min, clip_max)
-
-    field_part = "all maps" if only_seed is None else inputHelper._seed_label(only_seed)
-    plt.xlabel(f"Time between moves ({time_unit})")
-    plt.ylabel("Probability density")
-    plt.title(f"Distribution of time-to-make-a-move ({field_part})")
-    plt.grid(axis="y", alpha=0.25)
-    plt.ylim(0, 3.7)
-    plt.tight_layout()
-    plt.legend()
-    plt.show(block=False)
-
-def plot_avg_move_time_per_user_intermediate(database_entries, only_seed=None, only_user_priv=None, time_unit="s", include_first_move=False, clip_min=None, clip_max=None):
+def process_avg_move_time_per_user_intermediate(only_seed=None, only_user_priv=None, time_unit="s", include_first_move=False, clip_min=None, clip_max=None):
     """
     Returns (label, avg_time) for a single user/seed filter, or None if no data.
     """
@@ -923,20 +524,16 @@ def plot_avg_move_time_per_user_intermediate(database_entries, only_seed=None, o
     return label, float(np.mean(dts))
 
 
-def plot_avg_move_time_per_user(database_entries, only_seed=None, users=[None], time_unit="s", include_first_move=False, clip_min=None, clip_max=None, user_order=None):
+def process_avg_move_time_per_user(only_seed=None, users=[None], time_unit="s", include_first_move=False, clip_min=None, clip_max=None, user_order=None):
     results = []
     for user in [u for u in users if u is not None]:
-        r = plot_avg_move_time_per_user_intermediate(
-            inputHelper.database_entries, only_seed, user,
-            time_unit, include_first_move, clip_min, clip_max)
+        r = process_avg_move_time_per_user_intermediate(only_seed, user, time_unit, include_first_move, clip_min, clip_max)
         if r is not None:
             results.append(r)
 
     # append "all people" (None) last if it was in users
     if None in users:
-        r = plot_avg_move_time_per_user_intermediate(
-            inputHelper.database_entries, only_seed, None,
-            time_unit, include_first_move, clip_min, clip_max)
+        r = process_avg_move_time_per_user_intermediate(only_seed, None, time_unit, include_first_move, clip_min, clip_max)
         if r is not None:
             results.append(r)
 
@@ -950,20 +547,10 @@ def plot_avg_move_time_per_user(database_entries, only_seed=None, users=[None], 
     labels, data = rearange_name_data(labels, data)
     labels = [inputHelper._user_label(u) for u in labels]
 
-    field_part = "all maps" if only_seed is None else inputHelper._seed_label(only_seed)
-    plt.figure(figsize=(9, 5))
-    plt.bar(labels, data, color="steelblue", edgecolor="black")
-    plt.xlabel("User")
-    plt.ylabel(f"Avg time between moves ({time_unit})")
-    plt.title(f"Average time between moves ({field_part})")
-    plt.xticks(rotation=45, ha="right")
-    plt.grid(axis="y", alpha=0.25)
-    plt.tight_layout()
-    plt.show(block=False)
+    return labels, data
 
 
-# Constraint-solver plots
-def plot_move_difficulty_histogram(database_entries, preprocesses, only_seed=None, only_user_priv=None, bins=6, clip_min=None, clip_max=None, use_pre_action_state=True):
+def process_move_difficulty_histogram(only_seed=None, only_user_priv=None, bins=6, clip_min=None, clip_max=None, use_pre_action_state=True):
     difficulties = []
 
     for entry in inputHelper.database_entries:
@@ -975,7 +562,7 @@ def plot_move_difficulty_histogram(database_entries, preprocesses, only_seed=Non
         oid = entry.get("_id", {}).get("$oid", None)
         if oid is None:
             continue
-        action_analyses = preprocesses.get(oid, None)
+        action_analyses = inputHelper.preprocesses.get(oid, None)
         if action_analyses is None:
             continue
 
@@ -1014,24 +601,14 @@ def plot_move_difficulty_histogram(database_entries, preprocesses, only_seed=Non
         print("All difficulties removed by clipping.")
         return
 
-    user_part = "all people" if only_user_priv is None else inputHelper._user_label(only_user_priv)
-    field_part = "all maps" if only_seed is None else inputHelper._seed_label(only_seed)
-
     if bins is None:
         max_d = int(np.max(difficulties))
         bins = np.arange(-0.5, max_d + 1.5, 1)
 
-    plt.figure(figsize=(9, 5))
-    plt.hist(difficulties, bins=bins, density=True, color="slateblue", edgecolor="black", alpha=0.55)
-    plt.xlabel("Move difficulty (phase index where (x,y) matches final phase)")
-    plt.ylabel("Probability density")
-    plt.title(f"Distribution of move difficulty ({user_part}, {field_part})")
-    plt.grid(axis="y", alpha=0.25)
-    plt.tight_layout()
-    plt.show(block=False)
+    return difficulties, bins
 
 
-def plot_far_when_close_available(database_entries, preprocesses, mode="all_people", target_user_priv=None, close_radius=1.5, far_radius=2.5, use_pre_action_state=True, ignore_first_action=True, min_events=10):
+def process_far_when_close_available(mode="all_people", target_user_priv=None, close_radius=1.5, far_radius=2.5, use_pre_action_state=True, ignore_first_action=True, min_events=10):
     if mode not in ("all_people", "one_person_by_map"):
         raise ValueError("mode must be 'all_people' or 'one_person_by_map'")
     if mode == "one_person_by_map" and target_user_priv is None:
@@ -1049,7 +626,7 @@ def plot_far_when_close_available(database_entries, preprocesses, mode="all_peop
         oid = entry.get("_id", {}).get("$oid", None)
         if oid is None:
             continue
-        action_analyses = preprocesses.get(oid, None)
+        action_analyses = inputHelper.preprocesses.get(oid, None)
         if action_analyses is None:
             continue
 
@@ -1060,7 +637,7 @@ def plot_far_when_close_available(database_entries, preprocesses, mode="all_peop
         if mode == "all_people":
             key = user_priv
         else:
-            threebv = _seed_to_3bv(seed)
+            threebv = inputHelper._seed_to_3bv(seed)
             key = threebv if threebv is not None else str(seed)
 
         if key not in stats:
@@ -1145,19 +722,10 @@ def plot_far_when_close_available(database_entries, preprocesses, mode="all_peop
         title = f"Percent far moves when a close solvable move existed (by field 3bv) – {who}"
         xlabel = "Field (3bv)"
 
-    plt.figure(figsize=(12, 6))
-    plt.bar(labels, pct, color="teal", edgecolor="black")
-    plt.ylabel("Percent (%)")
-    plt.xlabel(xlabel)
-    plt.title(title)
-    plt.ylim(0, 100)
-    plt.grid(axis="y", alpha=0.25)
-    plt.xticks(rotation=45, ha="right")
-    plt.tight_layout()
-    plt.show(block=False)
+    return labels, pct
 
 
-def plot_hard_when_easy_available(database_entries, preprocesses, mode="all_people", target_user_priv=None, hard_threshold=2, use_pre_action_state=True, ignore_first_action=True):
+def process_hard_when_easy_available(mode="all_people", target_user_priv=None, hard_threshold=2, use_pre_action_state=True, ignore_first_action=True):
     if mode not in ("all_people", "one_person_by_map"):
         raise ValueError("mode must be 'all_people' or 'one_person_by_map'")
     if mode == "one_person_by_map" and target_user_priv is None:
@@ -1175,7 +743,7 @@ def plot_hard_when_easy_available(database_entries, preprocesses, mode="all_peop
         oid = entry.get("_id", {}).get("$oid", None)
         if oid is None:
             continue
-        action_analyses = preprocesses.get(oid, None)
+        action_analyses = inputHelper.preprocesses.get(oid, None)
         if action_analyses is None:
             continue
 
@@ -1186,7 +754,7 @@ def plot_hard_when_easy_available(database_entries, preprocesses, mode="all_peop
         if mode == "all_people":
             key = user_priv
         else:
-            threebv = _seed_to_3bv(seed)
+            threebv = inputHelper._seed_to_3bv(seed)
             key = threebv if threebv is not None else str(seed)
 
         if key not in stats:
@@ -1266,19 +834,10 @@ def plot_hard_when_easy_available(database_entries, preprocesses, mode="all_peop
         title = f"Percent hard moves when an easier (and no farther) move existed (by field 3bv) – {who}"
         xlabel = "Field (3bv)"
 
-    plt.figure(figsize=(12, 6))
-    plt.bar(labels, pct, color="crimson", edgecolor="black")
-    plt.ylabel("Percent (%)")
-    plt.xlabel(xlabel)
-    plt.title(title)
-    plt.ylim(0, 100)
-    plt.grid(axis="y", alpha=0.25)
-    plt.xticks(rotation=45, ha="right")
-    plt.tight_layout()
-    plt.show(block=False)
+    return labels, pct
 
 # THING 8(?).
-def avg_move_difficulty_per_map(database_entries, preprocesses, seed_3bv_lookup, use_pre_action_state=True, ignore_difficulty0=True, require_in_final_domain=True):
+def process_avg_move_difficulty_per_map(use_pre_action_state=True, ignore_difficulty0=True, require_in_final_domain=True, min_moves=50):
     def move_difficulty_at_xy(domainsArr, xy):
         x, y = xy
         if domainsArr is None or len(domainsArr) == 0:
@@ -1299,7 +858,7 @@ def avg_move_difficulty_per_map(database_entries, preprocesses, seed_3bv_lookup,
     cnt_by_seed = {}
     subs_by_seed = {}
 
-    for entry in inputHelper.database_entries:
+    for entry in inputHelper.database_entries_successful:
         seed = str(entry.get("seed", ""))
         if seed == "":
             continue
@@ -1307,7 +866,7 @@ def avg_move_difficulty_per_map(database_entries, preprocesses, seed_3bv_lookup,
         oid = entry.get("_id", {}).get("$oid", None)
         if oid is None:
             continue
-        action_analyses = preprocesses.get(oid, None)
+        action_analyses = inputHelper.preprocesses.get(oid, None)
         if action_analyses is None:
             continue
 
@@ -1355,26 +914,15 @@ def avg_move_difficulty_per_map(database_entries, preprocesses, seed_3bv_lookup,
         if n <= 0:
             continue
         out[seed] = {
-            "threebv": seed_3bv_lookup.get(str(seed), None),
+            "threebv": inputHelper.seed_3bv_lookup.get(str(seed), None),
             "avg_difficulty": float(s) / float(n),
             "n_moves": int(n),
             "n_submissions": int(subs_by_seed.get(seed, 0)),
         }
-    return out
 
-def plot_avg_move_difficulty_per_map(database_entries, preprocesses, seed_3bv_lookup,
-                                     use_pre_action_state=True,
-                                     min_moves=50):
-    import matplotlib.pyplot as plt
-    import numpy as np
-
-    stats = avg_move_difficulty_per_map(
-        inputHelper.database_entries, preprocesses, seed_3bv_lookup,
-        use_pre_action_state=use_pre_action_state
-    )
 
     rows = []
-    for seed, d in stats.items():
+    for seed, d in out.items():
         if d["n_moves"] < min_moves:
             continue
         x = d["threebv"]
@@ -1389,15 +937,7 @@ def plot_avg_move_difficulty_per_map(database_entries, preprocesses, seed_3bv_lo
     rows.sort(key=lambda t: t[0])
     x = [r[0] for r in rows]
     y = [r[1] for r in rows]
-
-    plt.figure(figsize=(10, 5))
-    plt.bar(x, y, color="slateblue", edgecolor="black")
-    plt.xlabel("Field (3bv)")
-    plt.ylabel("Avg move difficulty")
-    plt.title("Average move difficulty per map (across all actions)")
-    plt.grid(axis="y", alpha=0.25)
-    plt.tight_layout()
-    plt.show(block=False)
+    return x, y
 
 def find_possible_moves(domainsArr, hints):
     width = len(hints[0])
@@ -1417,26 +957,11 @@ def find_possible_moves(domainsArr, hints):
 
     return possible_moves_count
 
-def plot_avg_entropy_per_field_for_user(database_entries, preprocesses, target_user_priv, use_pre_action_state=True, successful_only=False):
+def process_avg_entropy_per_field_for_user(target_user_priv, use_pre_action_state=True, successful_only=False):
     """
     Bar chart for a single user: x = field (3bv), y = avg entropy across all their submissions on that field.
     Entropy per submission = mean log2(possible_moves) across its actions.
     """
-    _hints_cache = {}
-
-    def get_hints(entry):
-        seed = entry.get("seed")
-        if seed is None:
-            return None
-        if seed not in _hints_cache:
-            try:
-                board = inputHandler.board_generate(9, 9, 10, seed)
-                h = np.copy(board)
-                h[h == -1] = 9
-                _hints_cache[seed] = h
-            except Exception:
-                return None
-        return _hints_cache[seed]
 
     def submission_avg_entropy(entry, action_analyses, hints):
         actions = inputHelper._sorted_actions(entry)
@@ -1464,18 +989,18 @@ def plot_avg_entropy_per_field_for_user(database_entries, preprocesses, target_u
         if successful_only and not entry.get("successful", False):
             continue
 
-        threebv = _seed_to_3bv(entry.get("seed"))
+        threebv = inputHelper._seed_to_3bv(entry.get("seed"))
         if threebv is None:
             continue
 
         oid = entry.get("_id", {}).get("$oid")
         if oid is None:
             continue
-        action_analyses = preprocesses.get(oid)
+        action_analyses = inputHelper.preprocesses.get(oid)
         if action_analyses is None:
             continue
 
-        hints = get_hints(entry)
+        hints = inputHelper.get_hints(entry)
         if hints is None:
             continue
 
@@ -1492,35 +1017,13 @@ def plot_avg_entropy_per_field_for_user(database_entries, preprocesses, target_u
     sorted_fields = sorted(field_to_entropies.keys())
     avg_entropies = [float(np.mean(field_to_entropies[f])) for f in sorted_fields]
 
-    plt.figure(figsize=(10, 5))
-    plt.bar([str(f) for f in sorted_fields], avg_entropies, color="darkorange", edgecolor="black")
-    plt.xlabel("Field (3bv)")
-    plt.ylabel("Avg entropy (log2 possible moves)")
-    plt.title(f"Avg move entropy per field – {inputHelper._user_label(target_user_priv)}")
-    plt.grid(axis="y", alpha=0.25)
-    plt.tight_layout()
-    plt.show(block=False)
+    return [str(f) for f in sorted_fields], avg_entropies
 
-def plot_avg_entropy_per_user(database_entries, preprocesses, use_pre_action_state=True, successful_only=False, sort_descending=True, data_only=False):
+def process_avg_entropy_per_user(use_pre_action_state=True, successful_only=False, sort_descending=True, data_only=False):
     """
     Bar chart: one bar per user, y = avg entropy across all their submissions (all fields pooled).
     Entropy per submission = mean log2(possible_moves) across its actions.
     """
-    _hints_cache = {}
-
-    def get_hints(entry):
-        seed = entry.get("seed")
-        if seed is None:
-            return None
-        if seed not in _hints_cache:
-            try:
-                board = inputHandler.board_generate(9, 9, 10, seed)
-                h = np.copy(board)
-                h[h == -1] = 9
-                _hints_cache[seed] = h
-            except Exception:
-                return None
-        return _hints_cache[seed]
 
     def submission_avg_entropy(entry, action_analyses, hints):
         actions = inputHelper._sorted_actions(entry)
@@ -1543,32 +1046,25 @@ def plot_avg_entropy_per_user(database_entries, preprocesses, use_pre_action_sta
     user_to_entropies = {}
 
     for entry in inputHelper.database_entries:
-        if successful_only and not entry.get("successful", False):
-            continue
+        if successful_only and not entry.get("successful", False): continue
 
         user_priv = entry.get("userIDpriv")
-        if user_priv is None:
-            continue
+        if user_priv is None: continue
 
         oid = entry.get("_id", {}).get("$oid")
-        if oid is None:
-            continue
-        action_analyses = preprocesses.get(oid)
-        if action_analyses is None:
-            continue
+        if oid is None: continue
+        action_analyses = inputHelper.preprocesses.get(oid)
+        if action_analyses is None: continue
 
-        hints = get_hints(entry)
-        if hints is None:
-            continue
+        hints = inputHelper.get_hints(entry)
+        if hints is None: continue
 
         e = submission_avg_entropy(entry, action_analyses, hints)
-        if e is None:
-            continue
-
+        if e is None: continue
         user_to_entropies.setdefault(user_priv, []).append(e)
 
     if not user_to_entropies:
-        print("No entropy data found.")
+        print("No entropy data found for entry", entry)
         return
 
     users = list(user_to_entropies.keys())
@@ -1580,15 +1076,6 @@ def plot_avg_entropy_per_user(database_entries, preprocesses, use_pre_action_sta
         labels = [labels[i] for i in order]
         avgs = [avgs[i] for i in order]
 
-    if data_only:
-        return labels, avgs
+    return labels, avgs
 
-    plt.figure(figsize=(10, 5))
-    plt.bar(labels, avgs, color="steelblue", edgecolor="black")
-    plt.xlabel("User")
-    plt.ylabel("Avg entropy (log2 possible moves)")
-    plt.title("Avg move entropy per user across all submissions")
-    plt.xticks(rotation=45, ha="right")
-    plt.grid(axis="y", alpha=0.25)
-    plt.tight_layout()
-    plt.show(block=False)
+# ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

@@ -57,6 +57,16 @@ for neededID in all_users[::-1]:
 
 # ---------------------------- Small helpers ----------------------------
 
+_hints_cache = {}
+def get_hints(entry):
+    seed = entry.get("seed")
+    if seed not in _hints_cache:
+        board = inputHandler.board_generate(9, 9, 10, seed)
+        h = np.copy(board)
+        h[h == -1] = 9
+        _hints_cache[seed] = h
+    return _hints_cache[seed]
+
 def _seed_to_3bv(seed):
     return seed_3bv_lookup.get(str(seed), None)
 
