@@ -102,9 +102,267 @@ def process_submissions_per_field_3bv(percentage=False):
     unique_fields2, all_counts2 = unique_fields, (counts / all_counts) if percentage else counts
     return unique_fields1, all_counts1, unique_fields2, all_counts2
 
-def plot_avg_percent_difference_per_person(database_entries, seed_3bv_lookup, successful_only=True, time_unit="s", min_fields_per_person=2, min_attempts_per_field=1, sort_by_metric=True):
+# VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV
+
+def process_avg_percent_difference_per_person(successful_only=True, time_unit="s", min_fields_per_person=2, min_attempts_per_field=1, sort_by_metric=True):
+    rows = []
+    for e in inputHelper.database_entries:
+        if successful_only and not e.get("successful", False):
+            continue
+        seed = str(e["seed"])
+        threebv = inputHelper.seed_3bv_lookup.get(seed, None)
+        if threebv is None:
+            continue
+
+        dur = float(e["duration"])
+        if time_unit == "s":
+            dur /= 1000.0
+        elif time_unit == "ms":
+            pass
+        else:
+            raise ValueError("time_unit must be 's' or 'ms'")
+
+        user_priv = e["userIDpriv"]
+        rows.append((user_priv, int(threebv), dur))
+
+    if len(rows) == 0:
+        print("No valid rows to compute metrics.")
+        return
+
+    users = np.array([r[0] for r in rows], dtype=object)
+    fields = np.array([r[1] for r in rows], dtype=int)
+    durs = np.array([r[2] for r in rows], dtype=float)
+
+    uniq_fields, inv_f = np.unique(fields, return_inverse=True)
+    global_sum = np.bincount(inv_f, weights=durs)
+    global_cnt = np.bincount(inv_f)
+    global_avg = global_sum / np.maximum(global_cnt, 1)
+    global_avg_by_field = {int(f): float(global_avg[i]) for i, f in enumerate(uniq_fields)}
+
+    pair_keys = np.array([f"{u}|||{fld}" for u, fld in zip(users, fields)], dtype=object)
+    uniq_pairs, inv_p = np.unique(pair_keys, return_inverse=True)
+    pair_sum = np.bincount(inv_p, weights=durs)
+    pair_cnt = np.bincount(inv_p)
+    pair_avg = pair_sum / np.maximum(pair_cnt, 1)
+
+    user_to_diffs = {}
+    for i, pair in enumerate(uniq_pairs):
+        u, fld_str = pair.split("|||")
+        fld = int(fld_str)
+        if pair_cnt[i] < min_attempts_per_field:
+            continue
+
+        gavg = global_avg_by_field.get(fld, None)
+        if gavg is None or gavg == 0:
+            continue
+
+        pdiff = 100.0 * (pair_avg[i] - gavg) / gavg
+        user_to_diffs.setdefault(u, []).append(float(pdiff))
+
+    labels = []
+    metrics = []
+    for u, diffs in user_to_diffs.items():
+        if len(diffs) < min_fields_per_person:
+            continue
+        labels.append(inputHelper._user_label(u))
+        metrics.append(float(np.mean(diffs)))
+
+    if len(metrics) == 0:
+        print("No users met min_fields_per_person / min_attempts_per_field.")
+        return
+
+    labels = np.array(labels, dtype=object)
+    metrics = np.array(metrics, dtype=float)
+
+    if sort_by_metric:
+        order = np.argsort(metrics)
+        labels = labels[order]
+        metrics = metrics[order]
+
+    return labels, metrics
+
+def process_avg_time_per_person(successful_only=True, time_unit="s", min_fields_per_person=2, min_attempts_per_field=1, sort_by_metric=True):
     rows = []
     for e in database_entries:
+        try:
+            if successful_only and not e.get("successful", False):
+                continue
+            seed = str(e["seed"])
+            threebv = seed_3bv_lookup.get(seed, None)
+            if threebv is None:
+                continue
+
+            dur = float(e["duration"])
+            if time_unit == "s":
+                dur /= 1000.0
+            elif time_unit == "ms":
+                pass
+            else:
+                raise ValueError("time_unit must be 's' or 'ms'")
+
+            user_priv = e["userIDpriv"]
+            rows.append((user_priv, int(threebv), dur))
+        except Exception:
+            continue
+
+    if len(rows) == 0:
+        print("No valid rows to compute metrics.")
+        return
+
+    users = np.array([r[0] for r in rows], dtype=object)
+    fields = np.array([r[1] for r in rows], dtype=int)
+    durs = np.array([r[2] for r in rows], dtype=float)
+
+    uniq_fields, inv_f = np.unique(fields, return_inverse=True)
+    global_sum = np.bincount(inv_f, weights=durs)
+    global_cnt = np.bincount(inv_f)
+    global_avg = global_sum / np.maximum(global_cnt, 1)
+    global_avg_by_field = {int(f): float(global_avg[i]) for i, f in enumerate(uniq_fields)}
+
+    pair_keys = np.array([f"{u}|||{fld}" for u, fld in zip(users, fields)], dtype=object)
+    uniq_pairs, inv_p = np.unique(pair_keys, return_inverse=True)
+    pair_sum = np.bincount(inv_p, weights=durs)
+    pair_cnt = np.bincount(inv_p)
+    pair_avg = pair_sum / np.maximum(pair_cnt, 1)
+
+    user_to_diffs = {}
+    for i, pair in enumerate(uniq_pairs):
+        u, fld_str = pair.split("|||")
+        fld = int(fld_str)
+        if pair_cnt[i] < min_attempts_per_field:
+            continue
+
+        pdiff = pair_avg[i]
+        user_to_diffs.setdefault(u, []).append(float(pdiff))
+
+    labels = []
+    metrics = []
+    for u, diffs in user_to_diffs.items():
+        if len(diffs) < min_fields_per_person:
+            continue
+        labels.append(inputHelper._user_label(u))
+        metrics.append(float(np.mean(diffs)))
+
+    if len(metrics) == 0:
+        print("No users met min_fields_per_person / min_attempts_per_field.")
+        return
+
+    labels = np.array(labels, dtype=object)
+    metrics = np.array(metrics, dtype=float)
+
+    if sort_by_metric:
+        order = np.argsort(metrics)
+        labels = labels[order]
+        metrics = metrics[order]
+
+    return labels, metrics
+
+
+# THING 2.
+def process_box_solve_time_per_field():
+    durations = []
+    fields = []
+
+    for entry in inputHelper.database_entries:
+        try:
+            dur = float(entry["duration"]) / 1000
+            seed = entry["seed"]
+            threebv = inputHelper._seed_to_3bv(seed)
+            if threebv is None:
+                continue
+            if dur < 0.05:
+                continue
+            if len(entry["actionRecords"]) < threebv:
+                continue
+            durations.append(dur)
+            fields.append(threebv)
+        except (KeyError, ValueError, KeyError):
+            continue
+
+    if not durations:
+        print("No valid durations found.")
+        return
+
+    durations = np.array(durations)
+    fields = np.array(fields)
+    unique_fields, idx = np.unique(fields, return_inverse=True)
+
+    vals = [durations[idx == i] for i in range(len(unique_fields))]
+    medianprops=dict(color="#F8982E", linewidth=2)
+
+    avgs = [durations[idx == i].mean() for i in range(len(unique_fields))]
+    avgs = [np.median(durations[idx == i]) for i in range(len(unique_fields))]
+
+    return vals, unique_fields, medianprops, avgs
+
+def process_avg_solve_time_per_field():
+    durations = []
+    fields = []
+
+    for entry in inputHelper.database_entries:
+        try:
+            dur = float(entry["duration"]) / 1000
+            seed = entry["seed"]
+            threebv = _seed_to_3bv(seed)
+            if threebv is None:
+                continue
+            durations.append(dur)
+            fields.append(threebv)
+        except (KeyError, ValueError, KeyError):
+            continue
+
+    if not durations:
+        print("No valid durations found.")
+        return
+
+    durations = np.array(durations)
+    fields = np.array(fields)
+    unique_fields, idx = np.unique(fields, return_inverse=True)
+    avgs = [durations[idx == i].mean() for i in range(len(unique_fields))]
+
+    return unique_fields, avgs
+
+
+# THING 3.
+def process_avg_solve_time_per_field_per_person(target_users):
+    returnable = []
+    for user in target_users:
+        durations = []
+        fields = []
+
+        for entry in inputHelper.database_entries:
+            if entry["userIDpriv"] != user:
+                continue
+            try:
+                dur = float(entry["duration"]) / 1000
+                seed = entry["seed"]
+                threebv = inputHelper._seed_to_3bv(seed)
+                if threebv is None:
+                    continue
+                durations.append(dur)
+                fields.append(threebv)
+            except (KeyError, ValueError, KeyError):
+                continue
+
+        if not durations:
+            print(f"No data for user {user}.")
+            continue
+
+        durations = np.array(durations)
+        fields = np.array(fields)
+
+        unique_fields, idx = np.unique(fields, return_inverse=True)
+        times = [durations[idx == i] for i in range(len(unique_fields))]
+        avg_times = [durations[idx == i].mean() for i in range(len(unique_fields))]
+
+        returnable.append([times, unique_fields, avg_times])
+    return returnable
+
+# ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+def plot_avg_percent_difference_per_person(database_entries, seed_3bv_lookup, successful_only=True, time_unit="s", min_fields_per_person=2, min_attempts_per_field=1, sort_by_metric=True):
+    rows = []
+    for e in inputHelper.database_entries:
         try:
             if successful_only and not e.get("successful", False):
                 continue
@@ -193,7 +451,7 @@ def plot_avg_percent_difference_per_person(database_entries, seed_3bv_lookup, su
 
 def plot_avg_time_per_person(database_entries, seed_3bv_lookup, successful_only=True, time_unit="s", min_fields_per_person=2, min_attempts_per_field=1, sort_by_metric=True):
     rows = []
-    for e in database_entries:
+    for e in inputHelper.database_entries:
         try:
             if successful_only and not e.get("successful", False):
                 continue
@@ -278,11 +536,11 @@ def plot_avg_time_per_person(database_entries, seed_3bv_lookup, successful_only=
 
 
 # THING 2.
-def plot_box_solve_time_per_field(database_entries):
+def plot_box_solve_time_per_field():
     durations = []
     fields = []
 
-    for entry in database_entries:
+    for entry in inputHelper.database_entries:
         try:
             dur = float(entry["duration"]) / 1000
             seed = entry["seed"]
@@ -324,11 +582,12 @@ def plot_box_solve_time_per_field(database_entries):
     plt.tight_layout()
     plt.show(block=False)
 
-def plot_avg_solve_time_per_field(database_entries):
+
+def _avg_solve_time_per_field(database_entries):
     durations = []
     fields = []
 
-    for entry in database_entries:
+    for entry in inputHelper.database_entries:
         try:
             dur = float(entry["duration"]) / 1000
             seed = entry["seed"]
@@ -369,7 +628,7 @@ def plot_avg_solve_time_per_field_per_person(database_entries, target_users):
         durations = []
         fields = []
 
-        for entry in database_entries:
+        for entry in inputHelper.database_entries:
             if entry["userIDpriv"] != user:
                 continue
             try:
@@ -418,7 +677,7 @@ def plot_learning_curve_per_person_per_field(database_entries, target_users, fie
     plt.figure(figsize=(8, 5))
 
     for user in target_users:
-        entries = [e for e in database_entries if e["userIDpriv"] == user and str(e.get("seed", "")) == str(seed)]
+        entries = [e for e in inputHelper.database_entries if e["userIDpriv"] == user and str(e.get("seed", "")) == str(seed)]
 
         if len(entries) < min_attempts:
             print(f"Skipping {user}: only {len(entries)} attempts for field {seed}.")
@@ -448,7 +707,7 @@ def plot_move_distance_histogram_intermediate(database_entries, only_seed=None, 
         raise ValueError(f"Unknown distance_metric={distance_metric}")
 
     distances = []
-    for entry in database_entries:
+    for entry in inputHelper.database_entries:
         if only_seed is not None and str(entry.get("seed")) != str(only_seed):
             continue
         if only_user_priv is not None and entry.get("userIDpriv") != only_user_priv:
@@ -493,7 +752,7 @@ def plot_move_distance_histogram(database_entries, only_seed=None, users=[None],
 
 def plot_move_time_avg_intermediate(database_entries, only_seed=None, only_user_priv=None, time_unit="s", color=None):
     dts = {}
-    for entry in database_entries:
+    for entry in inputHelper.database_entries:
         if only_seed is not None and str(entry.get("seed")) != str(only_seed):
             continue
         if only_user_priv is not None and entry.get("userIDpriv") != only_user_priv:
@@ -541,7 +800,7 @@ def plot_move_time_avg_intermediate(database_entries, only_seed=None, only_user_
 
 def plot_move_time_histogram_intermediate(database_entries, only_seed=None, only_user_priv=None, bins=30, time_unit="s", include_first_move=False, clip_min=None, clip_max=None, color=None):
     dts = []
-    for entry in database_entries:
+    for entry in inputHelper.database_entries:
         if only_seed is not None and str(entry.get("seed")) != str(only_seed):
             continue
         if only_user_priv is not None and entry.get("userIDpriv") != only_user_priv:
@@ -615,7 +874,7 @@ def plot_avg_move_time_per_user_intermediate(database_entries, only_seed=None, o
     Returns (label, avg_time) for a single user/seed filter, or None if no data.
     """
     dts = []
-    for entry in database_entries:
+    for entry in inputHelper.database_entries:
         if only_seed is not None and str(entry.get("seed")) != str(only_seed):
             continue
         if only_user_priv is not None and entry.get("userIDpriv") != only_user_priv:
@@ -668,7 +927,7 @@ def plot_avg_move_time_per_user(database_entries, only_seed=None, users=[None], 
     results = []
     for user in [u for u in users if u is not None]:
         r = plot_avg_move_time_per_user_intermediate(
-            database_entries, only_seed, user,
+            inputHelper.database_entries, only_seed, user,
             time_unit, include_first_move, clip_min, clip_max)
         if r is not None:
             results.append(r)
@@ -676,7 +935,7 @@ def plot_avg_move_time_per_user(database_entries, only_seed=None, users=[None], 
     # append "all people" (None) last if it was in users
     if None in users:
         r = plot_avg_move_time_per_user_intermediate(
-            database_entries, only_seed, None,
+            inputHelper.database_entries, only_seed, None,
             time_unit, include_first_move, clip_min, clip_max)
         if r is not None:
             results.append(r)
@@ -707,7 +966,7 @@ def plot_avg_move_time_per_user(database_entries, only_seed=None, users=[None], 
 def plot_move_difficulty_histogram(database_entries, preprocesses, only_seed=None, only_user_priv=None, bins=6, clip_min=None, clip_max=None, use_pre_action_state=True):
     difficulties = []
 
-    for entry in database_entries:
+    for entry in inputHelper.database_entries:
         if only_seed is not None and str(entry.get("seed")) != str(only_seed):
             continue
         if only_user_priv is not None and entry.get("userIDpriv") != only_user_priv:
@@ -780,7 +1039,7 @@ def plot_far_when_close_available(database_entries, preprocesses, mode="all_peop
 
     stats = {}  # key -> [numerator_far_when_close, denominator_close_available]
 
-    for entry in database_entries:
+    for entry in inputHelper.database_entries:
         user_priv = entry.get("userIDpriv")
         seed = entry.get("seed")
 
@@ -906,7 +1165,7 @@ def plot_hard_when_easy_available(database_entries, preprocesses, mode="all_peop
 
     stats = {}  # key -> [numerator, denominator]
 
-    for entry in database_entries:
+    for entry in inputHelper.database_entries:
         user_priv = entry.get("userIDpriv")
         seed = entry.get("seed")
 
@@ -1040,7 +1299,7 @@ def avg_move_difficulty_per_map(database_entries, preprocesses, seed_3bv_lookup,
     cnt_by_seed = {}
     subs_by_seed = {}
 
-    for entry in database_entries:
+    for entry in inputHelper.database_entries:
         seed = str(entry.get("seed", ""))
         if seed == "":
             continue
@@ -1110,7 +1369,7 @@ def plot_avg_move_difficulty_per_map(database_entries, preprocesses, seed_3bv_lo
     import numpy as np
 
     stats = avg_move_difficulty_per_map(
-        database_entries, preprocesses, seed_3bv_lookup,
+        inputHelper.database_entries, preprocesses, seed_3bv_lookup,
         use_pre_action_state=use_pre_action_state
     )
 
@@ -1199,7 +1458,7 @@ def plot_avg_entropy_per_field_for_user(database_entries, preprocesses, target_u
 
     field_to_entropies = {}
 
-    for entry in database_entries:
+    for entry in inputHelper.database_entries:
         if entry.get("userIDpriv") != target_user_priv:
             continue
         if successful_only and not entry.get("successful", False):
@@ -1283,7 +1542,7 @@ def plot_avg_entropy_per_user(database_entries, preprocesses, use_pre_action_sta
 
     user_to_entropies = {}
 
-    for entry in database_entries:
+    for entry in inputHelper.database_entries:
         if successful_only and not entry.get("successful", False):
             continue
 
