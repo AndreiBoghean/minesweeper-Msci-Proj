@@ -549,6 +549,114 @@ def process_avg_move_time_per_user(only_seed=None, users=[None], time_unit="s", 
 
     return labels, data
 
+def process_avg_time_per_difficulty_level(max_difficulty_level=3, time_unit="s", use_pre_action_state=True, successful_only=True, min_moves_per_level=1):
+    """
+    For each person, compute their average move time at each difficulty level (1..max_difficulty_level).
+
+    Difficulty of a move is computed with inputHelper.movedifficultyat_xy(domainsArr, (x,y)).
+    Moves with difficulty 0 or None are ignored.
+    Time for a move = delta between consecutive action timestamps within a submission.
+
+    Returns:
+      labels_pub: list of userIDpub strings
+      times_by_level: dict level(int) -> np.array of avg times per user (same order as labels_pub),
+                      entries with fewer than min_moves_per_level for that level become np.nan
+    """
+    # user_priv -> level -> list of dt values
+    user_level_times = {}
+
+    for entry in inputHelper.database_entries:
+        if successful_only and not entry.get("successful", False):
+            continue
+
+        user_priv = entry.get("userIDpriv")
+        if user_priv is None:
+            continue
+
+        oid = entry.get("_id", {}).get("$oid", None)
+        if oid is None:
+            continue
+        action_analyses = inputHelper.preprocesses.get(oid, None)
+        if action_analyses is None:
+            continue
+
+        # actions = inputHelper.sortedactions(entry)
+        # if len(actions) < 2:
+        #     continue
+        actions = entry["actionRecords"]
+
+        # collect timestamps and actions in sorted order
+        ts = []
+        valid_actions = []
+        for act in actions:
+            ts_val = int(act["timestamp"])
+            ts.append(ts_val)
+            valid_actions.append(act)
+
+        if len(ts) < 2:
+            continue
+
+        ts = np.array(ts, dtype=np.int64)
+        dts = np.diff(ts)  # len = len(valid_actions) - 1
+
+        for j in range(1, len(valid_actions)):
+            prev_act = valid_actions[j - 1]
+            act = valid_actions[j]
+
+            if "x" not in act or "y" not in act:
+                continue
+            x, y = int(act["x"]), int(act["y"])
+
+            step_idx = j if use_pre_action_state else (j + 1)
+            if step_idx < 0 or step_idx >= len(action_analyses):
+                continue
+            domainsArr = action_analyses[step_idx]
+            if domainsArr is None or len(domainsArr) == 0:
+                continue
+
+            d = inputHelper._move_difficulty_at_xy(domainsArr, (x, y))
+            if d is None or d <= 0:
+                continue
+
+            if d > max_difficulty_level:
+                continue
+
+            dt = float(dts[j - 1])  # ms
+            if time_unit == "s":
+                dt /= 1000.0
+            elif time_unit == "ms":
+                pass
+            else:
+                raise ValueError("time_unit must be 'ms' or 's'")
+
+            user_level_times.setdefault(user_priv, {}).setdefault(d, []).append(dt)
+
+    if not user_level_times:
+        print("No difficulty/time data found.")
+        return [], {}
+
+    # build ordered user list
+    users_priv = list(user_level_times.keys())
+
+    times_by_level = {}
+    for level in range(1, max_difficulty_level + 1):
+        vals = []
+        for u in users_priv:
+            arr = user_level_times.get(u, {}).get(level, [])
+            if len(arr) < min_moves_per_level:
+                vals.append(np.nan)
+            else:
+                vals.append(float(np.mean(arr)))
+        times_by_level[level] = np.array(vals, dtype=float)
+
+
+    _, times_by_level[1] = rearange_name_data(users_priv, times_by_level[1])
+    _, times_by_level[2] = rearange_name_data(users_priv, times_by_level[2])
+    users_priv, times_by_level[3] = rearange_name_data(users_priv, times_by_level[3])
+
+    labels = [inputHelper._user_label(u) for u in users_priv]
+
+    return labels, times_by_level
 
 def process_move_difficulty_histogram(only_seed=None, only_user_priv=None, bins=6, clip_min=None, clip_max=None, use_pre_action_state=True):
     difficulties = []
@@ -1068,14 +1176,18 @@ def process_avg_entropy_per_user(use_pre_action_state=True, successful_only=Fals
         return
 
     users = list(user_to_entropies.keys())
-    avgs = [float(np.mean(user_to_entropies[u])) for u in users]
+    data = [float(np.mean(user_to_entropies[u])) for u in users]
+
+    # labels = [inputHelper._user_label(u) for u in users]
+
+    users, data = rearange_name_data(users, data)
     labels = [inputHelper._user_label(u) for u in users]
 
-    if sort_descending:
-        order = np.argsort(avgs)[::-1]
-        labels = [labels[i] for i in order]
-        avgs = [avgs[i] for i in order]
+    # if sort_descending:
+    #     order = np.argsort(avgs)[::-1]
+    #     labels = [labels[i] for i in order]
+    #     avgs = [avgs[i] for i in order]
 
-    return labels, avgs
+    return labels, data
 
 # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

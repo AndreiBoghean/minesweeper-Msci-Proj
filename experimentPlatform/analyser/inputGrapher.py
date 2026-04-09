@@ -7,11 +7,11 @@ import solverAlgs
 import matplotlib.pyplot as plt
 import numpy as np
 
-andrei = [k for k, v in inputHelper.userPRIV_to_pub.items() if v == "andreiAll"][0]
-# andrei = [k for k, v in inputHelper.userPRIV_to_pub.items() if v == "andreiBrowser"][0]
-duncan = [k for k, v in inputHelper.userPRIV_to_pub.items() if v == "Duncan"][0]
-maxine = [k for k, v in inputHelper.userPRIV_to_pub.items() if v == "JazzyMaxine"][0]
-alpaca = [k for k, v in inputHelper.userPRIV_to_pub.items() if v == "Alpaca"][0]
+# andrei = [k for k, v in inputHelper.userPRIV_to_pub.items() if v == "andreiAll"][0]
+# # andrei = [k for k, v in inputHelper.userPRIV_to_pub.items() if v == "andreiBrowser"][0]
+# duncan = [k for k, v in inputHelper.userPRIV_to_pub.items() if v == "Duncan"][0]
+# maxine = [k for k, v in inputHelper.userPRIV_to_pub.items() if v == "JazzyMaxine"][0]
+# alpaca = [k for k, v in inputHelper.userPRIV_to_pub.items() if v == "Alpaca"][0]
 
 inputStatisticaler.name_order = [ inputHelper._user_pub_to_priv(n) for n in inputStatisticaler.process_avg_entropy_per_user(use_pre_action_state=True, successful_only=False, sort_descending=True, data_only=True)[0]]
 
@@ -30,7 +30,7 @@ def plot_submissions_per_person(percentage = False):
 
     plt.xlabel("User")
     plt.ylabel("Number of submissions")
-    plt.title("Distribution of submissions per person" + " (percentages successful)" if percentage else "")
+    plt.title("Distribution of submissions per person" + (" (percentages successful)" if percentage else ""))
     plt.xticks(rotation=45, ha="right")
     plt.tight_layout()
     plt.legend()
@@ -174,12 +174,27 @@ def plot_move_distance_histogram(only_seed=None, users=[None], bins=30, distance
 
     plt.figure(figsize=(9, 5))
 
+    avgs = []
+    labels = []
     for user in users:
         result = inputStatisticaler.process_move_distance_histogram_intermediate(only_seed=None, only_user_priv=user, bins=bins, distance_metric=distance_metric)
         if result is None: continue
 
-        user_part = "all people" if user is None else inputHelper._user_label(user)
-        plt.hist(result, bins=bins, label=user_part, density=True, edgecolor="black", alpha=0.85)
+        # user_part = "all people" if user is None else inputHelper._user_label(user)
+        user_part = "all people" if user is None else user
+        avgs.append(np.mean(result))
+        labels.append(user_part)
+        # plt.hist(result, bins=bins, label=user_part, density=True, edgecolor="black", alpha=0.85)
+
+    labels, avgs = inputStatisticaler.rearange_name_data(labels, avgs)
+    labels = [inputHelper._user_label(u) for u in labels]
+
+    print(f"{labels=}")
+    print(f"{avgs=}")
+    
+    
+    plt.bar(labels, avgs, edgecolor="black", alpha=0.85)
+    plt.xticks(rotation=45, ha="right")
 
     plt.xlabel(f"Move distance ({distance_metric})")
     plt.ylabel("Probability density")
@@ -193,12 +208,25 @@ def plot_move_distance_histogram(only_seed=None, users=[None], bins=30, distance
 def plot_move_time_histogram_overlaid(only_seed=None, users=[None], bins=30, time_unit="s", include_first_move=False, clip_min=None, clip_max=None):
     plt.figure(figsize=(9, 5))
 
+
+    avgs = []
+    labels = []
     for user in users:
         dts = inputStatisticaler.process_move_time_histogram_intermediate(only_seed, user, bins, time_unit, include_first_move, clip_min, clip_max)
         if dts is None: continue
 
-        user_part = "all people" if user is None else inputHelper._user_label(user)
-        plt.hist(dts, label=user_part, bins=bins, density=True, edgecolor="black", alpha=0.55)
+        # user_part = "all people" if user is None else inputHelper._user_label(user)
+        user_part = "all people" if user is None else user
+
+        avgs.append(np.mean(dts))
+        labels.append(user_part)
+        # plt.hist(dts, label=user_part, bins=bins, density=True, edgecolor="black", alpha=0.55)
+
+    labels, avgs = inputStatisticaler.rearange_name_data(labels, avgs)
+    labels = [inputHelper._user_label(u) for u in labels]
+
+    plt.bar(labels, avgs, edgecolor="black", alpha=0.55)
+    plt.xticks(rotation=45, ha="right")
 
     field_part = "all maps" if only_seed is None else inputHelper._seed_label(only_seed)
     plt.xlabel(f"Time between moves ({time_unit})")
@@ -223,6 +251,46 @@ def plot_avg_move_time_per_user(only_seed=None, users=[None], time_unit="s", inc
     plt.xticks(rotation=45, ha="right")
     plt.grid(axis="y", alpha=0.25)
     plt.tight_layout()
+    plt.show(block=False)
+
+def plot_avg_time_per_difficulty_level(max_difficulty_level=3, time_unit="s", use_pre_action_state=True, successful_only=True, min_moves_per_level=1):
+    """
+    Scatter plot: for each person, their avg move time at difficulty levels 1,2,3.
+    x-axis = person, three dots per person:
+      level 1 = blue, level 2 = green, level 3 = yellow.
+    """
+    labels, times_by_level = inputStatisticaler.process_avg_time_per_difficulty_level(max_difficulty_level=max_difficulty_level, time_unit=time_unit, use_pre_action_state=use_pre_action_state, successful_only=successful_only, min_moves_per_level=min_moves_per_level,
+    )
+    if not labels or not times_by_level:
+        return
+
+    x = np.arange(len(labels))
+
+    plt.figure(figsize=(12, 6))
+
+    if 1 in times_by_level:
+        # _, times_by_level[1] = inputStatisticaler.rearange_name_data(labels, times_by_level[1])
+
+        plt.scatter(x, times_by_level[1], color="blue", label="difficulty 1")
+    if 2 in times_by_level and max_difficulty_level >= 2:
+        # _, times_by_level[2] = inputStatisticaler.rearange_name_data(labels, times_by_level[2])
+
+        plt.scatter(x, times_by_level[2], color="green", label="difficulty 2")
+    if 3 in times_by_level and max_difficulty_level >= 3:
+        # _, times_by_level[3] = inputStatisticaler.rearange_name_data(labels, times_by_level[3])
+
+        plt.scatter(x, times_by_level[3], color="yellow", edgecolors="black", label="difficulty 3")
+
+
+    labels, x = inputStatisticaler.rearange_name_data(labels, x)
+    print(x)
+    plt.xticks(ticks=x, labels=labels, rotation=45, ha="right")
+    plt.xlabel("Person")
+    plt.ylabel(f"Avg time between moves ({time_unit})")
+    plt.title("Average move time by difficulty level per person")
+    plt.grid(axis="y", alpha=0.25)
+    plt.tight_layout()
+    plt.legend()
     plt.show(block=False)
 
 
@@ -310,8 +378,8 @@ def plot_avg_entropy_per_field_for_user(target_user_priv, use_pre_action_state=T
     plt.figure(figsize=(10, 5))
     plt.bar(thing1, avg_entropies, color="darkorange", edgecolor="black")
     plt.xlabel("Field (3bv)")
-    plt.ylabel("Avg entropy (log2 possible moves)")
-    plt.title(f"Avg move entropy per field – {inputHelper._user_label(target_user_priv)}")
+    plt.ylabel("Avg reward")
+    plt.title(f"Avg move reward per field – {inputHelper._user_label(target_user_priv)}")
     plt.grid(axis="y", alpha=0.25)
     plt.tight_layout()
     plt.show(block=False)
@@ -327,8 +395,8 @@ def plot_avg_entropy_per_user(use_pre_action_state=True, successful_only=False, 
     plt.figure(figsize=(10, 5))
     plt.bar(labels, avgs, color="steelblue", edgecolor="black")
     plt.xlabel("User")
-    plt.ylabel("Avg entropy (log2 possible moves)")
-    plt.title("Avg move entropy per user across all submissions")
+    plt.ylabel("Avg reward")
+    plt.title("Avg move reward per user across all submissions")
     plt.xticks(rotation=45, ha="right")
     plt.grid(axis="y", alpha=0.25)
     plt.tight_layout()
@@ -346,47 +414,48 @@ def phase_1_surface_distributions():
 def phase_2_time_vs_field():
     plot_box_solve_time_per_field()
 
-    test_users = [andrei, duncan, alpaca]
-    plot_avg_solve_time_per_field_per_person(test_users)
+    # test_users = [andrei, duncan, alpaca]
+    # plot_avg_solve_time_per_field_per_person(test_users)
     plot_avg_percent_difference_per_person(successful_only=True, time_unit="s")
 
 def phase_4_learning_curves():
-    for sd in  [13]:  # [10, 13, 22, 35, 40]:
-    # for sd in inputHelper.reverse_seed_3bv_lookup:
+    # for sd in  [13]:  # [10, 13, 22, 35, 40]:
+    for sd in inputHelper.reverse_seed_3bv_lookup:
         chosen_seed = inputHelper.reverse_seed_3bv_lookup[sd]
         plot_learning_curve_per_person_per_field(inputHelper.all_users, chosen_seed, min_attempts=1, block=False)
 
 def phase_5_move_distance_hists():
-    plot_move_distance_histogram(only_seed=None, users=[None, andrei], distance_metric="euclidean")
-    plot_move_distance_histogram(only_seed=None, users=[None, duncan], distance_metric="euclidean")
-    plot_move_distance_histogram(only_seed=None, users=[None, maxine], distance_metric="euclidean")
+    # plot_move_distance_histogram(only_seed=None, users=[None, andrei], distance_metric="euclidean")
+    # plot_move_distance_histogram(only_seed=None, users=[None, duncan], distance_metric="euclidean")
+    # plot_move_distance_histogram(only_seed=None, users=[None, maxine], distance_metric="euclidean")
     plot_move_distance_histogram(only_seed=None, users=[None] + list(inputHelper.userPRIV_to_pub.keys()), distance_metric="euclidean")
 
 def phase_6_move_time_hists():
-    plot_move_time_histogram_overlaid(only_seed=None, users=[None, maxine], bins=30, time_unit="s", clip_max=10)
-    plot_move_time_histogram_overlaid(only_seed=None, users=[None, duncan], bins=30, time_unit="s", clip_max=10)
-    plot_move_time_histogram_overlaid(only_seed=None, users=[None, andrei], bins=30, time_unit="s", clip_max=10)
+    # plot_move_time_histogram_overlaid(only_seed=None, users=[None, maxine], bins=30, time_unit="s", clip_max=10)
+    # plot_move_time_histogram_overlaid(only_seed=None, users=[None, duncan], bins=30, time_unit="s", clip_max=10)
+    # plot_move_time_histogram_overlaid(only_seed=None, users=[None, andrei], bins=30, time_unit="s", clip_max=10)
     plot_move_time_histogram_overlaid(only_seed=None, users=[None] + list(inputHelper.userPRIV_to_pub.keys()), bins=30, time_unit="s", clip_max=10)
 
     plot_avg_move_time_per_user(only_seed=None, users=[None] + list(inputHelper.userPRIV_to_pub.keys()), time_unit="s", clip_max=10)
+    plot_avg_time_per_difficulty_level()
 
 def phase_7_constraint_solver_graphs():
-    one_user_priv = andrei
+    # one_user_priv = andrei
 
-    plot_move_difficulty_histogram(only_seed=None, only_user_priv=one_user_priv, bins=30)
+    # plot_move_difficulty_histogram(only_seed=None, only_user_priv=one_user_priv, bins=30)
     plot_move_difficulty_histogram(only_seed=None, only_user_priv=None, bins=30)
 
-    plot_far_when_close_available(mode="one_person_by_map", target_user_priv=one_user_priv, close_radius=1.5, far_radius=2.5, min_events=0)
+    # plot_far_when_close_available(mode="one_person_by_map", target_user_priv=one_user_priv, close_radius=1.5, far_radius=2.5, min_events=0)
     plot_far_when_close_available(mode="all_people", close_radius=1.5, far_radius=2.5, min_events=0)
 
-    plot_hard_when_easy_available(mode="one_person_by_map", target_user_priv=one_user_priv, hard_threshold=2)
+    # plot_hard_when_easy_available(mode="one_person_by_map", target_user_priv=one_user_priv, hard_threshold=2)
     plot_hard_when_easy_available(mode="all_people", hard_threshold=2)
 
 def phase_8_map_average_experienced_difficulty():
     plot_avg_move_difficulty_per_map()
 
 def phase_9_entropy_stuff():
-    plot_avg_entropy_per_field_for_user(andrei, use_pre_action_state=True, successful_only=False)
+    # plot_avg_entropy_per_field_for_user(andrei, use_pre_action_state=True, successful_only=False)
     plot_avg_entropy_per_user(use_pre_action_state=True, successful_only=False, sort_descending=True)
 
 # ---------------------------- Main flow (same pauses) ----------------------------
@@ -394,7 +463,7 @@ def phase_9_entropy_stuff():
 phases = [
     phase_1_surface_distributions,
     phase_2_time_vs_field,
-    phase_4_learning_curves,
+    # phase_4_learning_curves,
     phase_5_move_distance_hists,
     phase_6_move_time_hists,
     phase_7_constraint_solver_graphs,

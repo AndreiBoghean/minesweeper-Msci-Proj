@@ -167,11 +167,15 @@ def get_test_input():
 # and when we do the big "final" statitsics run, we will just download the whole dataset manually.
 
 manual_outliers = [ "6973872c367b629e6f5b347b", "69774c13367b629e6f5b3494", "69778783367b629e6f5b3515", "6978a206a91d7db7b45cdeaf", "697b3e7ca91d7db7b45cdeca", "697c61caa91d7db7b45cdf05", "697c61caa91d7db7b45cdf06" ]
-known_identities = [["andreiAll", "andreiAll", "andreiChrome", "andreiPhone", "andreiFirefox"]]
+known_identities = [["andreiAll", "andreiAll", "andreiChrome", "AndreiPhone", "andreiFirefox", "andreiBrowser"]]
+illegal_players = ["andreiAll", "andreiAll", "andreiChrome", "AndreiPhone", "andreiFirefox", "andreiBrowser"]
 jaysonCache = None
-def get_all_database_content(filter_manuals=True, modify_incomplete_completes=True, merge_known_identities=False):
+def get_all_database_content(filter_manuals=True, modify_incomplete_completes=True, merge_known_identities=False, block_illegals=True):
     def oid_is_banned(entry):
         return entry["_id"]["$oid"] not in manual_outliers
+
+    def username_is_illegal(entry):
+        return entry["userIDpub"] not in illegal_players
 
     global jaysonCache;
     if jaysonCache is None:
@@ -186,6 +190,9 @@ def get_all_database_content(filter_manuals=True, modify_incomplete_completes=Tr
                     jayson[i]["userIDpriv"] = identity_set[0]
                     jayson[i]["userIDpub"] = identity_set[0]
                     break
+
+    if block_illegals:
+        jayson = filter(username_is_illegal, jayson)
 
     if filter_manuals:
         jayson = filter(oid_is_banned, jayson)

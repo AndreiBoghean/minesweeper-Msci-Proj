@@ -8,7 +8,7 @@ import sys
 
 import minesweeperModel
 import solverAlgs
-import inputHandler
+import inputHelper
 
 import averageDifficultyPOC
 import cellReward
@@ -42,7 +42,7 @@ seed_3bv_lookup = {
 reverse_seed_3bv_lookup = {threebv: seed for seed, threebv in seed_3bv_lookup.items()}
 
 def cell_reward(testFields):
-    entries = inputHandler.get_all_database_content()
+    entries = inputHelper.get_all_database_content()
 
     rewards = [0] * 41
     for testField in testFields:
@@ -105,8 +105,8 @@ def meanness(testFields):
     meannesses = [0] * 41
 
     for testField in testFields:
-        entropy_data = entropyProofOfConceptV2.do_entropy_stuff(testField, entries, render=False, debug=False)
-        difficulty_data = averageDifficultyPOC.do_difficulty_stuff(testField, entries, render=False, debug=False)
+        entropy_data = cellReward.compute_cell_rewards(testField, entries, render=True, debug=False)
+        difficulty_data = averageDifficultyPOC.compute_cell_difficulties(testField, entries, render=True, debug=False)
 
         entropy_data = entropy_data / np.max(entropy_data)
         difficulty_data = difficulty_data / np.max(difficulty_data)
