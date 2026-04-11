@@ -9,6 +9,7 @@ import sys
 import minesweeperModel
 import solverAlgs
 import inputHandler
+import inputHelper
 
 import matplotlib.pyplot as plt
 
@@ -36,27 +37,6 @@ seed_3bv_lookup = {
     "1769089892886": 40,
 }
 reverse_seed_3bv_lookup = {threebv: seed for seed, threebv in seed_3bv_lookup.items()}
-
-def _move_difficulty_at_xy(domainsArr, xy):
-    """
-    Your snippet rule:
-        for i, domain in enumerate(domainsArr):
-            if domain[(x, y)] == domainsArr[-1][(x, y)]:
-                return i
-    """
-    x, y = xy
-    if domainsArr is None or len(domainsArr) == 0: return None
-
-    final_domains = domainsArr[-1]
-    if final_domains is None or (x, y) not in final_domains: return None
-
-    target = final_domains[(x, y)]
-    for i, domain in enumerate(domainsArr):
-        if domain is None or (x, y) not in domain:
-            continue
-        if domain[(x, y)] == target:
-            return i
-    return None
 
 def compute_cell_difficulties(threebv, entries, render=False, debug=False):
     testField = threebv
@@ -105,7 +85,7 @@ def compute_cell_difficulties(threebv, entries, render=False, debug=False):
             for y in range(9):
                 for x in range(9):
                     if current_boards[0][(x, y)] != last_boards[0][(x, y)]: # if the cell was opened..
-                        local_difficulty[y][x] = _move_difficulty_at_xy(last_boards, (x, y))
+                        local_difficulty[y][x] = inputHelper._move_difficulty_at_xy(last_boards, (x, y))
             board_aggregator += local_difficulty / entry_count
                 
             if not debug: continue
