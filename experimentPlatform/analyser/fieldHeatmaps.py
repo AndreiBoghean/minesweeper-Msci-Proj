@@ -9,6 +9,7 @@ import sys
 import minesweeperModel
 import solverAlgs
 import inputHelper
+import inputHandler
 
 import averageDifficultyPOC
 import cellReward
@@ -42,7 +43,7 @@ seed_3bv_lookup = {
 reverse_seed_3bv_lookup = {threebv: seed for seed, threebv in seed_3bv_lookup.items()}
 
 def cell_reward(testFields):
-    entries = inputHelper.get_all_database_content()
+    entries = inputHandler.get_all_database_content()
 
     rewards = [0] * 41
     for testField in testFields:
@@ -145,7 +146,6 @@ if __name__ == "__main__": # running as main will run random testing/debug stuff
     operations = [cell_reward, averageDifficulty, meanness]
     for op in operations:
         if op.__name__.startswith(operation):
-            operation = op
+            op(testFields)
             break
 
-    op(testFields)
